@@ -7,166 +7,55 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Want Map">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icon-180.png">
-<title>Want Map</title>
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-180.png">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<title>Want Map</title>
 <style>
-:root{--bg:#f6f6f3;--card:#fff;--text:#222;--muted:#7a7a76;--line:#e7e7e2;--soft:#f0f0ec;--accent:#222}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Hiragino Sans",Arial,sans-serif}
-button,input,select,textarea{font:inherit} button{cursor:pointer}
-.app{max-width:720px;margin:auto;min-height:100vh;padding-bottom:84px}
-header{position:sticky;top:0;z-index:1000;background:rgba(255,255,255,.94);backdrop-filter:blur(16px);padding:calc(12px + env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--line)}
-.title-row{display:flex;align-items:center;justify-content:space-between}.title{font-size:21px;font-weight:750;letter-spacing:-.02em}.sub{font-size:11px;color:var(--muted);margin-top:2px}
-.icon-btn{width:38px;height:38px;border:1px solid var(--line);border-radius:50%;background:#fff}
-.nav{display:flex;gap:6px;margin-top:12px}.nav button{flex:1;border:0;background:transparent;border-radius:12px;padding:9px 5px;font-size:12px;color:var(--muted)}.nav button.active{background:#222;color:#fff}
-main{padding:12px}.view{display:none}.view.active{display:block}
-#map{height:52vh;min-height:350px;border-radius:18px;overflow:hidden;border:1px solid var(--line)}
-.fab{position:fixed;right:16px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:1500;border:0;background:#222;color:#fff;border-radius:999px;padding:13px 17px;font-weight:650;box-shadow:0 5px 20px #0002}
-.filters{display:grid;grid-template-columns:1.5fr .8fr .8fr;gap:7px;margin-bottom:10px}
-input,select,textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:12px;padding:11px 12px;outline:none}
-input:focus,select:focus,textarea:focus{border-color:#aaa}.toolbar{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}.btn{border:1px solid var(--line);background:#fff;border-radius:11px;padding:9px 11px;font-size:12px}.primary{background:#222;color:#fff;border-color:#222}
-.cards{display:grid;gap:9px}.card{background:#fff;border:1px solid var(--line);border-radius:17px;padding:13px}.place-head{display:flex;justify-content:space-between;gap:10px}.place-name{font-weight:700;font-size:16px}.meta{color:var(--muted);font-size:11px;margin-top:4px}.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}.chip{background:var(--soft);border-radius:999px;padding:5px 8px;font-size:11px}
-.item{display:flex;gap:10px;align-items:center}.thumb{width:62px;height:62px;object-fit:cover;border-radius:11px;background:#eee;flex:none}.item-main{flex:1;min-width:0}.item-name{font-size:14px;font-weight:650}.item-meta{font-size:11px;color:var(--muted);margin-top:3px}.empty{text-align:center;color:var(--muted);font-size:13px;padding:40px 12px}
-.modal{position:fixed;inset:0;background:#0005;z-index:3000;display:none;align-items:flex-end}.modal.show{display:flex}.sheet{width:100%;max-width:720px;margin:auto;background:#fff;border-radius:22px 22px 0 0;padding:18px 16px calc(22px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto}.sheet h2{font-size:18px;margin:0 0 14px}.form{display:grid;gap:11px}.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.label{font-size:11px;color:var(--muted);margin:0 0 5px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}.photo-preview{width:90px;height:90px;border-radius:12px;object-fit:cover;margin-top:7px}.hint{font-size:10px;color:var(--muted);line-height:1.5}.geo-status{font-size:11px;color:var(--muted);min-height:16px}.geo-status.ok{color:#286b43}.geo-status.err{color:#a33}
-.section-title{font-size:13px;font-weight:700;margin:17px 2px 8px}
-.install{display:none;background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:10px;font-size:12px}.install.show{display:block}
-@media(min-width:721px){.fab{right:max(16px,calc((100vw - 720px)/2 + 16px))}}
+:root{--text:#202124;--muted:#777;--line:#e9e9e9;--bg:#f7f7f7;--card:#fff;--accent:#111}*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;color:var(--text);background:var(--bg)}button,input,select,textarea{font:inherit}button{cursor:pointer}.app{max-width:900px;margin:auto;min-height:100vh;background:#fff}.top{position:sticky;top:0;z-index:1000;background:#fff;border-bottom:1px solid var(--line);padding:12px 14px calc(10px + env(safe-area-inset-top))}.title-row{display:flex;align-items:center;justify-content:space-between}.title{font-size:21px;font-weight:800}.sub{font-size:11px;color:var(--muted);margin-top:2px}.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}.tab{border:0;background:#f1f1f1;border-radius:10px;padding:9px 4px;font-size:12px}.tab.active{background:#111;color:#fff}.content{padding:12px 14px 100px}.panel{display:none}.panel.active{display:block}.map-wrap{height:56vh;min-height:390px;border-radius:16px;overflow:hidden;border:1px solid var(--line);position:relative}.map{height:100%;width:100%}.map-actions{position:absolute;z-index:500;top:10px;left:10px;display:flex;gap:6px;flex-wrap:wrap}.map-actions button{background:#fff;border:1px solid #ddd;border-radius:10px;padding:8px 10px;box-shadow:0 2px 8px #0001;font-size:11px}.filters{display:grid;grid-template-columns:1.4fr .9fr .9fr;gap:7px;margin-bottom:10px}.input,.select,.textarea{width:100%;border:1px solid #ddd;border-radius:10px;background:#fff;padding:10px 11px;outline:none}.textarea{min-height:80px;resize:vertical}.cards{display:grid;gap:10px}.card{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff}.place-head,.item{display:flex;gap:10px;align-items:flex-start}.place-main,.item-main{flex:1;min-width:0}.place-name,.item-name{font-size:15px;font-weight:750}.meta,.item-meta{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45}.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.chip{background:#f3f3f3;border-radius:999px;padding:5px 8px;font-size:10px}.status{font-size:10px;padding:5px 8px;border-radius:999px;background:#111;color:#fff}.status.done{background:#e8f5ed;color:#25633c}.priority{letter-spacing:1px}.toolbar{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}.btn{border:1px solid #ddd;background:#fff;border-radius:9px;padding:8px 10px;font-size:11px}.btn.primary{background:#111;color:#fff;border-color:#111}.btn.danger{color:#a33}.btn.small{padding:6px 8px}.thumb{width:68px;height:68px;object-fit:cover;border-radius:11px;background:#eee;flex:none}.empty{text-align:center;color:var(--muted);font-size:13px;padding:38px 12px}.section-title{font-size:16px;font-weight:800;margin:16px 0 9px}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:#f7f7f7;border-radius:12px;padding:11px}.stat b{display:block;font-size:18px}.stat span{font-size:10px;color:var(--muted)}.trip-card{display:flex;justify-content:space-between;gap:10px;align-items:center}.trip-info{flex:1}.trip-name{font-weight:750}.price{font-weight:700;font-size:12px}.modal{position:fixed;inset:0;background:#0006;z-index:3000;display:none;align-items:flex-end}.modal.show{display:flex}.sheet{width:100%;max-width:720px;margin:auto;background:#fff;border-radius:22px 22px 0 0;padding:18px 16px calc(22px + env(safe-area-inset-bottom));max-height:94vh;overflow:auto}.sheet h2{font-size:18px;margin:0 0 14px}.form{display:grid;gap:11px}.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.label{font-size:11px;color:var(--muted);margin:0 0 5px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}.photo-preview{width:78px;height:78px;border-radius:12px;object-fit:cover}.photos{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}.photo-box{position:relative}.photo-box button{position:absolute;right:-4px;top:-4px;border:0;border-radius:50%;width:22px;height:22px;background:#111;color:#fff}.hint,.geo-status{font-size:10px;color:var(--muted);line-height:1.5}.geo-status.ok{color:#286b43}.geo-status.err{color:#a33}.footer-note{font-size:10px;color:#999;margin-top:14px}.leaflet-div-icon{background:transparent;border:0}.pin{width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;background:#111;color:#fff;border:3px solid #fff;box-shadow:0 2px 7px #0003}.pin span{transform:rotate(45deg);font-size:15px}.range{display:flex;align-items:center;gap:8px}.range input{flex:1}
+@media(max-width:560px){.filters{grid-template-columns:1fr 1fr}.filters input{grid-column:1/-1}.summary{grid-template-columns:1fr 1fr 1fr}.row{grid-template-columns:1fr 1fr}}
 </style>
 </head>
-<body>
-<div class="app">
-<header>
-  <div class="title-row"><div><div class="title">Want Map</div><div class="sub">行きたい場所と、そこで欲しいもの。</div></div><button class="icon-btn" id="backupBtn">↥</button></div>
-  <div class="nav"><button class="active" data-view="mapView">🗺️ マップ</button><button data-view="placeView">📍 場所</button><button data-view="itemView">♡ リスト</button></div>
-</header>
-<main>
-  <div id="installBox" class="install"><b>ホーム画面に追加できます</b><br>Safariの「共有」→「ホーム画面に追加」で、普通のアプリのように起動できます。</div>
-
-  <section id="mapView" class="view active">
-    <div id="map"></div>
-    <div class="toolbar"><button class="btn" id="fitBtn">全体を見る</button><button class="btn" id="currentBtn">現在地</button></div>
-    <div class="section-title">行きたい場所</div>
-    <div id="mapPlaces" class="cards"></div>
-  </section>
-
-  <section id="placeView" class="view">
-    <div class="toolbar"><button class="btn primary" id="addPlaceBtn">＋ 場所を追加</button></div>
-    <div id="places" class="cards"></div>
-  </section>
-
-  <section id="itemView" class="view">
-    <div class="filters"><input id="q" placeholder="検索"><select id="type"><option value="">すべて</option><option value="buy">🛍 買いたい</option><option value="eat">🍴 食べたい</option></select><select id="genre"><option value="">ジャンル</option></select></div>
-    <div id="items" class="cards"></div>
-  </section>
-</main>
-<button class="fab" id="fab">＋ 追加</button>
-</div>
-
-<div id="modal" class="modal"><div class="sheet">
-<h2 id="modalTitle"></h2>
-<form id="form" class="form"></form>
-<div class="actions"><button class="btn" type="button" id="cancel">キャンセル</button><button class="btn primary" type="submit" form="form">保存</button></div>
-</div></div>
-
+<body><div class="app">
+<header class="top"><div class="title-row"><div><div class="title">Want Map</div><div class="sub">行きたい場所を、地図に残そう。</div></div><button class="btn primary" onclick="openPlace()">＋ 追加</button></div><div class="tabs"><button class="tab active" data-tab="map">🗺️ 地図</button><button class="tab" data-tab="places">📍 場所</button><button class="tab" data-tab="items">📝 リスト</button><button class="tab" data-tab="trips">✈️ 旅行</button></div></header>
+<main class="content">
+<section id="panel-map" class="panel active"><div class="map-wrap"><div id="map" class="map"></div><div class="map-actions"><button onclick="fitAll()">全体表示</button><button onclick="filterVisible()">このエリアだけ</button><button onclick="clearMapFilter()">全て表示</button></div></div><div class="section-title">地図の絞り込み</div><div class="filters"><input id="mapQ" class="input" placeholder="場所・住所を検索"><select id="mapCat" class="select"><option value="">カテゴリすべて</option></select><select id="mapStatus" class="select"><option value="">ステータスすべて</option><option value="want">行きたい</option><option value="done">行った</option></select></div><div id="mapCards" class="cards"></div></section>
+<section id="panel-places" class="panel"><div class="filters"><input id="placeQ" class="input" placeholder="場所・住所・ジャンルを検索"><select id="placeCat" class="select"><option value="">カテゴリすべて</option></select><select id="placeStatus" class="select"><option value="">ステータスすべて</option><option value="want">行きたい</option><option value="done">行った</option></select></div><div id="places" class="cards"></div></section>
+<section id="panel-items" class="panel"><div class="summary" id="stats"></div><div class="section-title">買いたい・食べたい</div><div class="filters"><input id="itemQ" class="input" placeholder="検索"><select id="itemType" class="select"><option value="">種類すべて</option><option value="buy">🛍 買いたい</option><option value="eat">🍴 食べたい</option></select><select id="itemStatus" class="select"><option value="">ステータスすべて</option><option value="want">行きたい</option><option value="done">済み</option></select></div><div id="items" class="cards"></div></section>
+<section id="panel-trips" class="panel"><div class="section-title">旅行・お出かけ</div><button class="btn primary" onclick="openTrip()">＋ 旅行を追加</button><div id="trips" class="cards" style="margin-top:10px"></div><div class="footer-note">旅行に場所を追加すると、その旅行に行きたいスポットをまとめて見られます。</div></section>
+</main></div>
+<div id="modal" class="modal"><div class="sheet"><h2 id="modalTitle"></h2><div id="modalBody"></div></div></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const KEY='want-map-pwa-v2';
-let data=JSON.parse(localStorage.getItem(KEY)||'{"places":[],"items":[]}'),map,markers=[],editing=null;
-data.places=(data.places||[]).map(p=>({...p,category:p.category||'other',genre:p.genre||''}));
-data.items=data.items||[];
-const $=id=>document.getElementById(id);
-const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
-const PLACE_CATEGORIES={
- food:{label:'🍴 飲食店',genres:['カフェ・喫茶店','スイーツ','パン・ベーカリー','和食','洋食','中華','韓国料理','イタリアン','フレンチ','ラーメン','居酒屋','その他']},
- shopping:{label:'🛍 買い物',genres:['服・ファッション','コスメ・美容','雑貨','家具・インテリア','家電','本・文具','食品・食材','お土産','その他']},
- sightseeing:{label:'📷 観光・スポット',genres:['観光名所','美術館・博物館','神社・寺','公園・自然','撮影スポット','エンタメ','その他']},
- hotel:{label:'🏨 ホテル・宿',genres:['ホテル','旅館','民宿・ゲストハウス','その他']},
- other:{label:'📍 その他',genres:['その他']}
-};
-function persist(){localStorage.setItem(KEY,JSON.stringify(data));render()}
-function openModal(title,html){$('modalTitle').textContent=title;$('form').innerHTML=html;$('modal').classList.add('show')}
-function closeModal(){$('modal').classList.remove('show');editing=null}
-$('cancel').onclick=closeModal;
-document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.view).classList.add('active');if(b.dataset.view==='mapView')setTimeout(()=>map.invalidateSize(),80)});
-function categoryOptions(selected='other'){return Object.entries(PLACE_CATEGORIES).map(([k,v])=>`<option value="${k}" ${selected===k?'selected':''}>${v.label}</option>`).join('')}
-function genreOptions(category='other',selected=''){const gs=PLACE_CATEGORIES[category]?.genres||PLACE_CATEGORIES.other.genres;return `<option value="">選択してください</option>`+gs.map(g=>`<option value="${esc(g)}" ${selected===g?'selected':''}>${esc(g)}</option>`).join('')}
-function placeForm(p={}){
- const cat=p.category||'other';
- return `<div><div class="label">場所の名前 *</div><input name="name" required value="${esc(p.name)}" placeholder="例：○○カフェ"></div>
- <div><div class="label">住所 *</div><input name="address" required value="${esc(p.address)}" placeholder="例：東京都渋谷区○○1-2-3"><div id="geoStatus" class="geo-status">保存すると住所から自動でピンを付けます。</div></div>
- <div><div class="label">カテゴリ *</div><select name="category" id="placeCategory">${categoryOptions(cat)}</select></div>
- <div><div class="label">ジャンル</div><select name="genre" id="placeGenre">${genreOptions(cat,p.genre)}</select></div>
- <div class="row"><div><div class="label">緯度（自動）</div><input name="lat" type="number" step="any" value="${p.lat??''}" readonly></div><div><div class="label">経度（自動）</div><input name="lng" type="number" step="any" value="${p.lng??''}" readonly></div></div>
- <div class="hint">住所を入力して保存するだけで、地図上にピンを付けます。住所が見つからない場合は、入力内容を少し詳しくして再度保存してください。</div>`;
-}
-function bindPlaceForm(){
- const cat=$('placeCategory'),genre=$('placeGenre');
- if(cat)cat.onchange=()=>{genre.innerHTML=genreOptions(cat.value);};
-}
-async function geocodeAddress(address){
- const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=ja&countrycodes=jp&q='+encodeURIComponent(address);
- const res=await fetch(url,{headers:{'Accept':'application/json'}});
- if(!res.ok)throw new Error('geocode');
- const arr=await res.json();
- if(!arr.length)throw new Error('notfound');
- return {lat:+arr[0].lat,lng:+arr[0].lon,display:arr[0].display_name};
-}
-function addPlace(id=null){editing=id?{kind:'place',id}:null;const p=id?data.places.find(x=>x.id===id):{};openModal(id?'場所を編集':'行きたい場所を追加',placeForm(p));bindPlaceForm()}
-function itemGenreOptions(placeId='',selected=''){
- const p=data.places.find(x=>x.id===placeId),gs=p?(PLACE_CATEGORIES[p.category||'other']?.genres||[]):[...new Set(data.places.flatMap(x=>PLACE_CATEGORIES[x.category||'other']?.genres||[]))];
- const all=gs.length?gs:['その他'];
- return `<option value="">選択してください</option>`+all.map(g=>`<option value="${esc(g)}" ${selected===g?'selected':''}>${esc(g)}</option>`).join('')+(selected&&!all.includes(selected)?`<option value="${esc(selected)}" selected>${esc(selected)}</option>`:'');
-}
-function itemForm(i={},placeId=''){
- const pid=i.placeId||placeId||data.places[0]?.id||'';
- return `<div><div class="label">種類 *</div><select name="type"><option value="buy" ${i.type==='buy'?'selected':''}>🛍 買いたい</option><option value="eat" ${i.type==='eat'?'selected':''}>🍴 食べたい</option></select></div>
- <div><div class="label">名前 *</div><input name="name" required value="${esc(i.name)}" placeholder="例：プリン / バッグ"></div>
- <div><div class="label">場所 *</div><select name="placeId" id="itemPlace" required>${data.places.map(p=>`<option value="${p.id}" ${pid===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div>
- <div><div class="label">ジャンル</div><select name="genre" id="itemGenre">${itemGenreOptions(pid,i.genre)}</select></div>
- <div><div class="label">写真</div><input name="photo" type="file" accept="image/*" capture="environment">${i.photo?`<img class="photo-preview" src="${i.photo}">`:''}</div>
- <div><div class="label">メモ</div><textarea name="note" placeholder="色・サイズ・食べたいメニューなど">${esc(i.note)}</textarea></div>`;
-}
-function bindItemForm(){const p=$('itemPlace'),g=$('itemGenre');if(p)p.onchange=()=>{g.innerHTML=itemGenreOptions(p.value);}}
-function addItem(placeId=''){editing=null;if(!data.places.length)return alert('先に「行きたい場所」を追加してください。');openModal('買いたい・食べたいを追加',itemForm({},placeId));bindItemForm()}
-function editItem(id){const i=data.items.find(x=>x.id===id);editing={kind:'item',id};openModal('買いたい・食べたいを編集',itemForm(i,i.placeId));bindItemForm()}
-$('form').onsubmit=async e=>{
- e.preventDefault();
- const f=new FormData(e.target);
- if(!editing||editing.kind==='place'){
-   const name=f.get('name')?.trim(),address=f.get('address')?.trim(),category=f.get('category')||'other',genre=f.get('genre')||'';
-   if(!name||!address)return;
-   const status=$('geoStatus');
-   status.className='geo-status';status.textContent='住所から地図の位置を検索中…';
-   let lat=+f.get('lat')||null,lng=+f.get('lng')||null;
-   try{const geo=await geocodeAddress(address);lat=geo.lat;lng=geo.lng;status.className='geo-status ok';status.textContent='✓ 地図の位置を取得しました';}
-   catch(err){status.className='geo-status err';status.textContent='住所を地図上で見つけられませんでした。';if(!confirm('この住所から地図の位置を取得できませんでした。ピンなしで保存しますか？'))return;}
-   const x={name,address,category,genre,lat,lng};
-   if(editing?.id)Object.assign(data.places.find(p=>p.id===editing.id),x);else data.places.push({id:uid(),...x});
- }else{
-   const old=data.items.find(i=>i.id===editing.id),file=f.get('photo');let photo=old?.photo||null;
-   if(file?.size)photo=await new Promise((r,j)=>{let x=new FileReader();x.onload=()=>r(x.result);x.onerror=j;x.readAsDataURL(file)});
-   const x={type:f.get('type'),name:f.get('name'),genre:f.get('genre'),placeId:f.get('placeId'),note:f.get('note'),photo};
-   if(editing.id)Object.assign(old,x);else data.items.push({id:uid(),...x});
- }
- persist();closeModal();
-};
-function delPlace(id){if(confirm('この場所と紐づくリストも削除しますか？')){data.places=data.places.filter(p=>p.id!==id);data.items=data.items.filter(i=>i.placeId!==id);persist()}}
-function delItem(id){if(confirm('削除しますか？')){data.items=data.items.filter(i=>i.id!==id);persist()}}
-function renderMap(){markers.forEach(m=>m.remove());markers=[];data.places.forEach(p=>{if(p.lat&&p.lng){let m=L.marker([p.lat,p.lng]).addTo(map).bindPopup(`<b>${esc(p.name)}</b><br>${esc(PLACE_CATEGORIES[p.category||'other']?.label||'')} ${p.genre?'・ '+esc(p.genre):''}<br>${esc(p.address||'')}`);markers.push(m)}})}
-function placeCard(p){const its=data.items.filter(i=>i.placeId===p.id),cat=PLACE_CATEGORIES[p.category||'other']?.label||'📍 その他';return `<div class="card"><div class="place-head"><div><div class="place-name">${esc(p.name)}</div><div class="meta">${esc(p.address||'')}</div></div><button class="btn" onclick="addItem('${p.id}')">＋</button></div><div class="chips"><span class="chip">${esc(cat)}</span>${p.genre?`<span class="chip">${esc(p.genre)}</span>`:''}</div><div class="chips">${its.length?its.map(i=>`<span class="chip">${i.type==='buy'?'🛍':'🍴'} ${esc(i.name)}</span>`).join(''):'<span class="meta">まだ登録なし</span>'}</div><div class="toolbar"><button class="btn" onclick="addPlace('${p.id}')">編集</button><button class="btn" onclick="delPlace('${p.id}')">削除</button></div></div>`}
-function renderItems(){let q=$('q').value.toLowerCase(),t=$('type').value,g=$('genre').value;let arr=data.items.filter(i=>{let p=data.places.find(p=>p.id===i.placeId);let hay=[i.name,i.genre,i.note,p?.name,p?.address,p?.genre].join(' ').toLowerCase();return(!q||hay.includes(q))&&(!t||i.type===t)&&(!g||i.genre===g)});$('items').innerHTML=arr.length?arr.map(i=>{let p=data.places.find(p=>p.id===i.placeId);return `<div class="card"><div class="item">${i.photo?`<img class="thumb" src="${i.photo}">`:'<div class="thumb"></div>'}<div class="item-main"><div class="item-name">${i.type==='buy'?'🛍':'🍴'} ${esc(i.name)}</div><div class="item-meta">${esc(p?.name||'場所未設定')} ${i.genre?'・ '+esc(i.genre):''}</div>${i.note?`<div class="item-meta">${esc(i.note)}</div>`:''}</div><button class="btn" onclick="editItem('${i.id}')">編集</button><button class="btn" onclick="delItem('${i.id}')">削除</button></div></div>`}).join(''):'<div class="empty">条件に合うものがありません。</div>'}
-function render(){renderMap();$('places').innerHTML=data.places.length?data.places.map(placeCard).join(''):'<div class="empty">まだ場所がありません。</div>';$('mapPlaces').innerHTML=data.places.length?data.places.map(placeCard).join(''):'<div class="empty">「＋追加」から行きたい場所を登録してね。</div>';let gs=[...new Set(data.items.map(i=>i.genre).filter(Boolean))].sort(),old=$('genre').value;$('genre').innerHTML='<option value="">ジャンル</option>'+gs.map(g=>`<option>${esc(g)}</option>`).join('');if(gs.includes(old))$('genre').value=old;renderItems()}
-['q','type','genre'].forEach(id=>$(id).addEventListener('input',renderItems));
-$('addPlaceBtn').onclick=()=>addPlace();$('fab').onclick=()=>addPlace();$('backupBtn').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='want-map-backup.json';a.click()};
-$('fitBtn').onclick=()=>markers.length&&map.fitBounds(L.featureGroup(markers).getBounds().pad(.2));
-$('currentBtn').onclick=()=>navigator.geolocation?.getCurrentPosition(p=>map.setView([p.coords.latitude,p.coords.longitude],15));
-map=L.map('map').setView([35.6812,139.7671],5);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors'}).addTo(map);
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
-if(location.protocol==='https:' && /iPhone|iPad/.test(navigator.userAgent) && !window.navigator.standalone)$('installBox').classList.add('show');
-render();
-</script>
-</body>
-</html>
+const KEY='want-map-pwa-v2';const TRIP_KEY='want-map-trips-v1';
+let data=JSON.parse(localStorage.getItem(KEY)||'{"places":[],"items":[]}');let trips=JSON.parse(localStorage.getItem(TRIP_KEY)||'[]');let map,markers=[],editing=null,mapAreaFilter=false;
+const CATS={food:{label:'🍴 飲食店',genres:['カフェ・喫茶店','スイーツ','パン・ベーカリー','和食','洋食','中華','韓国料理','イタリアン','フレンチ','ラーメン','居酒屋','その他']},shopping:{label:'🛍️ 買い物',genres:['服・ファッション','コスメ・美容','雑貨','家具・インテリア','家電','本・文具','食品・食材','お土産','その他']},sightseeing:{label:'📷 観光・スポット',genres:['観光名所','美術館・博物館','神社・寺','公園・自然','撮影スポット','エンタメ','その他']},hotel:{label:'🏨 ホテル・宿',genres:['ホテル','旅館','民宿・ゲストハウス','その他']},other:{label:'📍 その他',genres:['その他']}};
+function $(id){return document.getElementById(id)}function esc(s=''){return String(s).replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]))}function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}function yen(n){return n?`¥${Number(n).toLocaleString('ja-JP')}`:'—'}function persist(){localStorage.setItem(KEY,JSON.stringify(data));render()}function persistTrips(){localStorage.setItem(TRIP_KEY,JSON.stringify(trips));renderTrips()}
+function catOptions(sel=''){return '<option value="">カテゴリを選択</option>'+Object.entries(CATS).map(([k,v])=>`<option value="${k}" ${k===sel?'selected':''}>${v.label}</option>`).join('')}
+function genreOptions(cat,sel=''){let gs=CATS[cat]?.genres||[];return '<option value="">選択してください</option>'+gs.map(g=>`<option ${g===sel?'selected':''}>${esc(g)}</option>`).join('')}
+function fillFilter(id){$(id).innerHTML='<option value="">カテゴリすべて</option>'+Object.entries(CATS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}
+function initMap(){map=L.map('map').setView([35.6812,139.7671],11);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);renderMap()}
+function markerIcon(p){let emoji=p.category==='food'?'🍴':p.category==='shopping'?'🛍️':p.category==='sightseeing'?'📷':p.category==='hotel'?'🏨':'📍';return L.divIcon({className:'',html:`<div class="pin"><span>${emoji}</span></div>`,iconSize:[34,34],iconAnchor:[17,34],popupAnchor:[0,-30]})}
+function filteredPlaces(extraArea=false){let q=($('mapQ')?.value||'').toLowerCase(),cat=$('mapCat')?.value||'',status=$('mapStatus')?.value||'';return data.places.filter(p=>{let hay=[p.name,p.address,p.city,p.area,p.genre].join(' ').toLowerCase();let ok=(!q||hay.includes(q))&&(!cat||p.category===cat)&&(!status||p.status===status);if(extraArea&&map&&p.lat&&p.lng)ok=ok&&map.getBounds().contains([p.lat,p.lng]);return ok})}
+function renderMap(){if(!map)return;markers.forEach(m=>m.remove());markers=[];let arr=filteredPlaces(mapAreaFilter);arr.forEach(p=>{if(p.lat&&p.lng){let m=L.marker([p.lat,p.lng],{icon:markerIcon(p)}).addTo(map).bindPopup(`<b>${esc(p.name)}</b><br>${esc(CATS[p.category]?.label||'')} ${p.genre?'・'+esc(p.genre):''}<br>${esc(p.address||'')}${p.price?'<br>'+yen(p.price):''}<br><button class="btn small" onclick="openPlace('${p.id}')">編集</button>`);markers.push(m)}});renderMapCards(arr)}
+function renderMapCards(arr=filteredPlaces(mapAreaFilter)){$('mapCards').innerHTML=arr.length?arr.map(placeCard).join(''):'<div class="empty">この条件の場所はありません。</div>'}
+function placeCard(p){let its=data.items.filter(i=>i.placeId===p.id);let stars='★'.repeat(Number(p.priority||0))+'☆'.repeat(3-Number(p.priority||0));return `<div class="card"><div class="place-head"><div class="place-main"><div class="place-name">${esc(p.name)}</div><div class="meta">${esc(p.address||'住所未登録')}</div>${p.city||p.area?`<div class="meta">${esc([p.city,p.area].filter(Boolean).join(' / '))}</div>`:''}</div><span class="status ${p.status==='done'?'done':''}">${p.status==='done'?'行った':'行きたい'}</span></div><div class="chips"><span class="chip">${esc(CATS[p.category]?.label||'📍 その他')}</span>${p.genre?`<span class="chip">${esc(p.genre)}</span>`:''}<span class="chip priority">${stars}</span>${p.price?`<span class="chip">予算 ${yen(p.price)}</span>`:''}</div>${p.note?`<div class="meta">${esc(p.note)}</div>`:''}<div class="chips">${its.length?its.map(i=>`<span class="chip">${i.type==='buy'?'🛍':'🍴'} ${esc(i.name)}${i.price?' ・ '+yen(i.price):''}</span>`).join(''):'<span class="meta">やりたいこと未登録</span>'}</div><div class="toolbar"><button class="btn" onclick="openItem(null,'${p.id}')">＋ 買う・食べる</button><button class="btn" onclick="openPlace('${p.id}')">編集</button><button class="btn danger" onclick="delPlace('${p.id}')">削除</button></div></div>`}
+function openPlace(id=null){editing={kind:'place',id};let p=id?data.places.find(x=>x.id===id):{status:'want',priority:1};$('modalTitle').textContent=id?'場所を編集':'行きたい場所を追加';$('modalBody').innerHTML=`<form id="placeForm" class="form"><div><div class="label">店名・スポット名 *</div><input class="input" name="name" value="${esc(p.name||'')}" required></div><div><div class="label">住所 *</div><input class="input" id="address" name="address" value="${esc(p.address||'')}" placeholder="住所を入力すると自動でピン付け" required><div id="geo" class="geo-status"></div></div><div class="row"><div><div class="label">カテゴリ *</div><select class="select" id="category" name="category" required>${catOptions(p.category||'')}</select></div><div><div class="label">ジャンル</div><select class="select" id="genre" name="genre">${genreOptions(p.category||'',p.genre||'')}</select></div></div><div class="row"><div><div class="label">ステータス</div><select class="select" name="status"><option value="want" ${p.status!=='done'?'selected':''}>行きたい</option><option value="done" ${p.status==='done'?'selected':''}>行った</option></select></div><div><div class="label">優先度</div><select class="select" name="priority"><option value="0" ${p.priority==0?'selected':''}>☆ なし</option><option value="1" ${p.priority==1?'selected':''}>★</option><option value="2" ${p.priority==2?'selected':''}>★★</option><option value="3" ${p.priority==3?'selected':''}>★★★</option></select></div></div><div><div class="label">価格・予算（円）</div><input class="input" type="number" min="0" name="price" value="${p.price||''}" placeholder="例：5000"></div><div><div class="label">旅行に追加</div><select class="select" name="tripId"><option value="">旅行を選択しない</option>${trips.map(t=>`<option value="${t.id}" ${p.tripId===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select></div><div><div class="label">メモ</div><textarea class="textarea" name="note" placeholder="予約・注意点・一緒に行く人など">${esc(p.note||'')}</textarea></div><div><div class="label">写真（複数可）</div><input class="input" type="file" id="placePhotos" accept="image/*" multiple><div id="placePhotosPreview" class="photos">${(p.photos||[]).map((s,i)=>`<div class="photo-box"><img class="photo-preview" src="${s}"><button type="button" onclick="removeTempPhoto(${i})">×</button></div>`).join('')}</div></div><div class="actions"><button type="button" class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary">保存</button></div></form>`;$('modal').classList.add('show');bindPlaceForm(p)}
+function bindPlaceForm(old){let cat=$('category'),genre=$('genre');cat.onchange=()=>genre.innerHTML=genreOptions(cat.value);$('address').addEventListener('blur',()=>geocodeAddress(false));$('placePhotos').addEventListener('change',e=>readFiles(e.target.files,'placePhotosPreview',old.photos||[]));$('placeForm').onsubmit=async e=>{e.preventDefault();let f=new FormData(e.target),addr=f.get('address').trim(),geo=await geocodeAddress(true);let photos=await collectPhotos(old.photos||[],'placePhotosPreview');let x={name:f.get('name').trim(),address:addr,category:f.get('category'),genre:f.get('genre'),status:f.get('status'),priority:Number(f.get('priority')||0),price:Number(f.get('price')||0),tripId:f.get('tripId')||'',note:f.get('note')||'',photos,lat:geo?.lat??old.lat??null,lng:geo?.lng??old.lng??null,city:geo?.city??old.city??'',area:geo?.area??old.area??''};if(editing.id)Object.assign(data.places.find(p=>p.id===editing.id),x);else data.places.push({id:uid(),...x});closeModal();persist()}}
+async function geocodeAddress(force){let addr=$('address')?.value.trim();if(!addr)return null;if(!force&&$('address').dataset.geocoded===addr)return null;$('geo').textContent='住所を検索中…';try{let r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=ja&q='+encodeURIComponent(addr),{headers:{'Accept':'application/json'}});let a=await r.json();if(!a.length){$('geo').textContent='住所から位置を見つけられませんでした。住所を確認してください。';$('geo').className='geo-status err';return null}let x=a[0],ad=x.address||{};$('address').dataset.geocoded=addr;$('geo').textContent='✓ 地図上の位置を取得しました';$('geo').className='geo-status ok';return{lat:Number(x.lat),lng:Number(x.lon),city:ad.city||ad.town||ad.village||ad.municipality||'',area:ad.suburb||ad.neighbourhood||ad.quarter||ad.city_district||''}}catch(e){$('geo').textContent='位置検索に失敗しました。通信状態を確認してください。';$('geo').className='geo-status err';return null}}
+function readFiles(files,previewId,existing){let box=$(previewId);[...files].forEach(file=>{let r=new FileReader();r.onload=()=>{let d=document.createElement('div');d.className='photo-box';d.dataset.temp=r.result;d.innerHTML=`<img class="photo-preview" src="${r.result}"><button type="button">×</button>`;d.querySelector('button').onclick=()=>d.remove();box.appendChild(d)};r.readAsDataURL(file)})}
+async function collectPhotos(existing,previewId){let arr=[];document.querySelectorAll('#'+previewId+' .photo-box').forEach(b=>arr.push(b.dataset.temp||b.querySelector('img')?.src));return arr.filter(Boolean)}
+function removeTempPhoto(i){let boxes=document.querySelectorAll('#placePhotosPreview .photo-box');if(boxes[i])boxes[i].remove()}
+function openItem(id=null,placeId=''){editing={kind:'item',id};let i=id?data.items.find(x=>x.id===id):{type:'buy',placeId,status:'want'};$('modalTitle').textContent=id?'リストを編集':'買いたい・食べたいを追加';$('modalBody').innerHTML=`<form id="itemForm" class="form"><div><div class="label">内容 *</div><input class="input" name="name" value="${esc(i.name||'')}" placeholder="例：クロッフル、コスメ" required></div><div class="row"><div><div class="label">種類</div><select class="select" name="type"><option value="buy" ${i.type==='buy'?'selected':''}>🛍 買いたい</option><option value="eat" ${i.type==='eat'?'selected':''}>🍴 食べたい</option></select></div><div><div class="label">場所 *</div><select class="select" name="placeId" required>${data.places.map(p=>`<option value="${p.id}" ${i.placeId===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div></div><div class="row"><div><div class="label">価格・予算（円）</div><input class="input" type="number" min="0" name="price" value="${i.price||''}" placeholder="例：3000"></div><div><div class="label">ステータス</div><select class="select" name="status"><option value="want" ${i.status!=='done'?'selected':''}>行きたい</option><option value="done" ${i.status==='done'?'selected':''}>済み</option></select></div></div><div><div class="label">メモ</div><textarea class="textarea" name="note">${esc(i.note||'')}</textarea></div><div><div class="label">写真</div><input class="input" type="file" name="photo" accept="image/*"><div class="photos">${i.photo?`<img class="photo-preview" src="${i.photo}">`:''}</div></div><div class="actions"><button type="button" class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary">保存</button></div></form>`;$('modal').classList.add('show');$('itemForm').onsubmit=async e=>{e.preventDefault();let f=new FormData(e.target),old=id?data.items.find(x=>x.id===id):{},photo=old.photo||null,file=f.get('photo');if(file&&file.size)photo=await fileToData(file);let x={name:f.get('name').trim(),type:f.get('type'),placeId:f.get('placeId'),price:Number(f.get('price')||0),status:f.get('status'),note:f.get('note')||'',photo};if(id)Object.assign(old,x);else data.items.push({id:uid(),...x});closeModal();persist()}}
+function fileToData(file){return new Promise((res,rej)=>{let r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
+function delPlace(id){if(confirm('この場所と紐づくリストも削除しますか？')){data.places=data.places.filter(p=>p.id!==id);data.items=data.items.filter(i=>i.placeId!==id);persist()}}function delItem(id){if(confirm('削除しますか？')){data.items=data.items.filter(i=>i.id!==id);persist()}}
+function renderPlaces(){let q=($('placeQ')?.value||'').toLowerCase(),cat=$('placeCat')?.value||'',st=$('placeStatus')?.value||'';let arr=data.places.filter(p=>(!q||[p.name,p.address,p.city,p.area,p.genre,p.note].join(' ').toLowerCase().includes(q))&&(!cat||p.category===cat)&&(!st||p.status===st));$('places').innerHTML=arr.length?arr.map(placeCard).join(''):'<div class="empty">条件に合う場所がありません。</div>'}
+function renderItems(){let q=($('itemQ')?.value||'').toLowerCase(),t=$('itemType')?.value||'',st=$('itemStatus')?.value||'';let arr=data.items.filter(i=>{let p=data.places.find(p=>p.id===i.placeId);return(!q||[i.name,i.note,p?.name,p?.address].join(' ').toLowerCase().includes(q))&&(!t||i.type===t)&&(!st||i.status===st)});$('items').innerHTML=arr.length?arr.map(i=>{let p=data.places.find(p=>p.id===i.placeId);return `<div class="card"><div class="item">${i.photo?`<img class="thumb" src="${i.photo}">`:''}<div class="item-main"><div class="item-name">${i.type==='buy'?'🛍':'🍴'} ${esc(i.name)}</div><div class="item-meta">${esc(p?.name||'場所未設定')} ${i.price?'・ '+yen(i.price):''}</div><div class="chips"><span class="status ${i.status==='done'?'done':''}">${i.status==='done'?'済み':'行きたい'}</span>${i.note?`<span class="chip">${esc(i.note)}</span>`:''}</div></div><button class="btn" onclick="openItem('${i.id}')">編集</button><button class="btn danger" onclick="delItem('${i.id}')">削除</button></div></div>`}).join(''):'<div class="empty">条件に合うものがありません。</div>';let want=data.items.filter(i=>i.status!=='done').length,done=data.items.filter(i=>i.status==='done').length,total=data.items.reduce((s,i)=>s+Number(i.price||0),0);$('stats').innerHTML=`<div class="stat"><b>${want}</b><span>未完了</span></div><div class="stat"><b>${done}</b><span>済み</span></div><div class="stat"><b>${yen(total)}</b><span>登録価格合計</span></div>`}
+function renderTrips(){let totalBudget=trips.reduce((s,t)=>s+Number(t.budget||0),0);$('trips').innerHTML=trips.length?trips.map(t=>{let ps=data.places.filter(p=>p.tripId===t.id),spent=ps.reduce((s,p)=>s+Number(p.price||0),0)+data.items.filter(i=>ps.some(p=>p.id===i.placeId)).reduce((s,i)=>s+Number(i.price||0),0);return `<div class="card trip-card"><div class="trip-info"><div class="trip-name">✈️ ${esc(t.name)}</div><div class="meta">${t.date?esc(t.date):''} ・ ${ps.length}か所 ${t.budget?'・予算 '+yen(t.budget):''}</div><div class="meta">登録価格 ${yen(spent)}</div></div><button class="btn" onclick="openTrip('${t.id}')">編集</button><button class="btn danger" onclick="delTrip('${t.id}')">削除</button></div>`}).join(''):'<div class="empty">まだ旅行がありません。</div>'}
+function openTrip(id=null){let t=id?trips.find(x=>x.id===id):{};$('modalTitle').textContent=id?'旅行を編集':'旅行を追加';$('modalBody').innerHTML=`<form id="tripForm" class="form"><div><div class="label">旅行名 *</div><input class="input" name="name" value="${esc(t.name||'')}" placeholder="例：韓国旅行 2026.09" required></div><div class="row"><div><div class="label">日付</div><input class="input" type="date" name="date" value="${t.date||''}"></div><div><div class="label">旅行予算（円）</div><input class="input" type="number" min="0" name="budget" value="${t.budget||''}" placeholder="例：100000"></div></div><div><div class="label">メモ</div><textarea class="textarea" name="note">${esc(t.note||'')}</textarea></div><div class="actions"><button type="button" class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary">保存</button></div></form>`;$('modal').classList.add('show');$('tripForm').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target),x={name:f.get('name').trim(),date:f.get('date'),budget:Number(f.get('budget')||0),note:f.get('note')||''};if(id)Object.assign(trips.find(t=>t.id===id),x);else trips.push({id:uid(),...x});closeModal();persistTrips()}}
+function delTrip(id){if(confirm('旅行を削除しますか？登録した場所は削除されず、旅行との紐付けだけ外れます。')){trips=trips.filter(t=>t.id!==id);data.places.forEach(p=>{if(p.tripId===id)p.tripId=''});persist();persistTrips()}}
+function filterVisible(){mapAreaFilter=true;renderMap();let arr=filteredPlaces(true);if(arr.length){let b=L.latLngBounds(arr.filter(p=>p.lat&&p.lng).map(p=>[p.lat,p.lng]));if(b.isValid())map.fitBounds(b.pad(.2))}}function clearMapFilter(){mapAreaFilter=false;renderMap()}function fitAll(){mapAreaFilter=false;let ps=data.places.filter(p=>p.lat&&p.lng);if(ps.length){let b=L.latLngBounds(ps.map(p=>[p.lat,p.lng]));map.fitBounds(b.pad(.2))}}
+function closeModal(){$('modal').classList.remove('show');editing=null}$('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('panel-'+b.dataset.tab).classList.add('active');if(b.dataset.tab==='map')setTimeout(()=>map.invalidateSize(),100)});
+['placeQ','placeCat','placeStatus'].forEach(id=>$(id).addEventListener('input',renderPlaces));['itemQ','itemType','itemStatus'].forEach(id=>$(id).addEventListener('input',renderItems));['mapQ','mapCat','mapStatus'].forEach(id=>$(id).addEventListener('input',renderMap));
+function render(){renderMap();renderPlaces();renderItems();renderTrips()}fillFilter('mapCat');fillFilter('placeCat');initMap();render();if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script></body></html>
