@@ -74,5 +74,5 @@ function filterVisible(){mapAreaFilter=true;renderMap();let arr=filteredPlaces(t
 function closeModal(){$('modal').classList.remove('show');editing=null}$('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('panel-'+b.dataset.tab).classList.add('active');if(b.dataset.tab==='map')setTimeout(()=>map.invalidateSize(),100)});
 ['placeQ','placeCat','placeStatus','placeSort'].forEach(id=>$(id).addEventListener('input',renderPlaces));['itemQ','itemType','itemStatus'].forEach(id=>$(id).addEventListener('input',renderItems));['mapQ','mapCat','mapStatus'].forEach(id=>$(id).addEventListener('input',renderMap));
-function render(){renderMap();renderPlaces();renderItems();renderTrips()}fillFilter('mapCat');fillFilter('placeCat');initMap();render();if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+function render(){renderMap();renderPlaces();renderItems();renderTrips()}fillFilter('mapCat');fillFilter('placeCat');initMap();render();if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v=10').catch(()=>{});
 </script></body></html>
