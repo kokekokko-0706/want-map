@@ -132,15 +132,20 @@ function openTripDetail(id){let t=trips.find(x=>x.id===id);if(!t)return;let plac
 function renderTripDetailMap(places){
   const el=$('tripDetailMap');
   if(!el)return;
-  if(!window.tripDetailMap) window.tripDetailMap=L.map(el).setView([35.681236,139.767125],5);
-  const m=window.tripDetailMap;
-  m.eachLayer(layer=>{ if(layer instanceof L.Marker || layer instanceof L.CircleMarker) m.removeLayer(layer); });
+  // 旅行詳細モーダルは開くたびにDOMが作り直されるため、古いLeafletインスタンスを再利用しない
+  if(window.tripDetailMap){
+    try{ window.tripDetailMap.remove(); }catch(e){}
+    window.tripDetailMap=null;
+  }
+  const m=L.map(el,{zoomControl:true,scrollWheelZoom:true}).setView([35.681236,139.767125],5);
+  window.tripDetailMap=m;
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(m);
   const pts=places.filter(p=>!p.anywhere&&Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lng)));
   const ms=pts.map(p=>L.marker([Number(p.lat),Number(p.lng)]).addTo(m).bindPopup(`<b>${esc(p.name)}</b>${p.address?`<br>${esc(displayStoredAddress(p))}`:''}`));
+  // 座標がある場所だけを旅行マップに表示。住所だけ登録されている場所は一覧には残す。
   if(ms.length===1)m.setView(ms[0].getLatLng(),15);
   else if(ms.length>1)m.fitBounds(L.featureGroup(ms).getBounds().pad(0.15));
-  else m.setView([35.681236,139.767125],5);
-  setTimeout(()=>m.invalidateSize(),80);
+  setTimeout(()=>m.invalidateSize(),100);
 }
 
 function openTrip(id=null){let t=id?trips.find(x=>x.id===id):{};let start=t.startDate||t.date||'',end=t.endDate||start;let mode=t.dateMode||'single';let type=t.type||'';$('modalTitle').textContent=id?'旅行・お出かけを編集':'旅行・お出かけを追加';$('modalBody').innerHTML=`<form id="tripForm" class="form"><div><div class="label">種類（任意）</div><div class="row"><button type="button" class="chip trip-type-btn ${type==='trip'?'active':''}" data-type="trip" style="padding:10px;cursor:pointer;border:0">旅行</button><button type="button" class="chip trip-type-btn ${type==='outing'?'active':''}" data-type="outing" style="padding:10px;cursor:pointer;border:0">お出かけ</button></div><input type="hidden" name="type" value="${type}"></div><div><div class="label">名前 *</div><input class="input" name="name" value="${esc(t.name||'')}" placeholder="例：韓国旅行、京都お出かけ" required></div><div><div class="label">日程</div><div class="row"><label class="chip" style="padding:10px;cursor:pointer"><input type="radio" name="dateMode" value="single" ${mode==='single'?'checked':''}> 1日</label><label class="chip" style="padding:10px;cursor:pointer"><input type="radio" name="dateMode" value="range" ${mode==='range'?'checked':''}> 期間</label></div><div id="tripDateFields" style="margin-top:8px"><div class="row trip-date-row"><div><div class="label" id="tripStartLabel">日付</div><input class="input" type="date" name="startDate" value="${start}"></div><div id="tripEndWrap" style="display:${mode==='range'?'block':'none'}"><div class="label">終了日</div><input class="input" type="date" name="endDate" value="${end}"></div></div></div></div><div><div class="label">メモ</div><textarea class="textarea" name="note">${esc(t.note||'')}</textarea></div><div class="actions"><button type="button" class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary">保存</button></div></form>`;$('modal').classList.add('show');document.querySelectorAll('.trip-type-btn').forEach(b=>b.onclick=()=>{let input=$('tripForm').type;if(input.value===b.dataset.type){input.value='';document.querySelectorAll('.trip-type-btn').forEach(x=>x.classList.remove('active'));}else{input.value=b.dataset.type;document.querySelectorAll('.trip-type-btn').forEach(x=>x.classList.toggle('active',x===b));}});let syncDateMode=()=>{let range=document.querySelector('input[name=dateMode]:checked')?.value==='range';$('tripEndWrap').style.display=range?'block':'none';$('tripStartLabel').textContent=range?'開始日':'日付';if(!range)$('tripForm').endDate.value=$('tripForm').startDate.value};document.querySelectorAll('input[name=dateMode]').forEach(r=>r.onchange=syncDateMode);$('tripForm').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target),dateMode=f.get('dateMode')||'single',startDate=f.get('startDate')||'',endDate=dateMode==='range'?(f.get('endDate')||''):startDate;if(dateMode==='range'&&startDate&&endDate&&endDate<startDate){alert('終了日は開始日以降にしてください。');return}let x={name:f.get('name').trim(),type:f.get('type')||'trip',dateMode,startDate,endDate,date:startDate,note:f.get('note')||''};if(id)Object.assign(trips.find(t=>t.id===id),x);else trips.push({id:uid(),...x});closeModal();persistTrips()}}
@@ -211,5 +216,5 @@ $('modal').classList.add('show')
 function closeModal(){$('modal').classList.remove('show');editing=null}$('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('panel-'+b.dataset.tab).classList.add('active');if(b.dataset.tab==='map')setTimeout(()=>map.invalidateSize(),100)});
 ['placeQ','placeCat','placeStatus','placeDeadline','placeSort'].forEach(id=>$(id).addEventListener('input',renderPlaces));['itemQ','itemType','itemStatus','itemFavorite','itemDeadline','itemSort'].forEach(id=>$(id).addEventListener('input',renderItems));['mapQ','mapCat','mapStatus'].forEach(id=>$(id).addEventListener('input',renderMap));
-function render(){fillFilter('mapCat');fillFilter('placeCat');renderTagBars();renderMap();renderPlaces();renderItems();renderTrips()}initMap();render();if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v=75').catch(()=>{});
+function render(){fillFilter('mapCat');fillFilter('placeCat');renderTagBars();renderMap();renderPlaces();renderItems();renderTrips()}initMap();render();if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v=77').catch(()=>{});
 </script></body></html>
