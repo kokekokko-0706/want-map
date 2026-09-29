@@ -183,8 +183,10 @@ function distanceKm(a,b){
 function estimateMinutes(a,b){
  const km=distanceKm(a,b);
  if(!km)return 0;
- // 直線距離から実際の移動を想定した概算。徒歩は歩道の迂回、公共交通は
- // 駅までの徒歩・待ち時間・乗換などを含め、直線距離より短くならないよう余裕を持たせる。
+ // 2地点間を独立して計算。直線距離をそのまま時間にせず、
+ // 徒歩・都市内公共交通・長距離鉄道で係数を切り替える。
+ // 長距離は新幹線などの都市間鉄道を含む想定で、都市間の平均的な
+ // 移動速度＋駅までの徒歩・乗換・待ち時間を加えた旅行計画用の概算。
  if(km<=1.2){
    const walkingKm=km*1.18;
    return Math.max(8,Math.ceil((walkingKm/4.5)*60/5)*5);
@@ -193,8 +195,14 @@ function estimateMinutes(a,b){
    const access=12,wait=8,routeKm=km*1.30,speed=27;
    return Math.max(20,Math.ceil((access+wait+(routeKm/speed)*60)/5)*5);
  }
- const access=15,wait=10,routeKm=km*1.25,speed=35;
- return Math.max(35,Math.ceil((access+wait+(routeKm/speed)*60)/5)*5);
+ if(km<=50){
+   const access=15,wait=10,routeKm=km*1.20,speed=55;
+   return Math.max(35,Math.ceil((access+wait+(routeKm/speed)*60)/5)*5);
+ }
+ // 長距離：都市間鉄道（新幹線等）を想定。
+ // 直線距離330km程度なら約3時間半前後になるよう設定。
+ const access=25,wait=10,routeKm=km*1.10,speed=115;
+ return Math.max(60,Math.ceil((access+wait+(routeKm/speed)*60)/5)*5);
 }
 function minutesBetween(a,b){
  if(!a||!b)return null;
