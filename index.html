@@ -160,7 +160,7 @@ function setPlaceDuration(tripId,placeId,v){let t=trips.find(x=>x.id===tripId);i
 function travelKey(d,from,to){return String(d)+'|'+String(from||'start')+'>'+String(to||'end')}
 function getTravelSetting(t,d,from,to){return (t.travelSettings||{})[travelKey(d,from,to)]||null}
 function setTravelSetting(tripId,d,from,to,field,value){let t=trips.find(x=>x.id===tripId);if(!t)return;t.travelSettings=t.travelSettings||{};let k=travelKey(d,from,to),x=t.travelSettings[k]||{};x[field]=value;if(field==='mode'&&value==='auto')delete x.mins;t.travelSettings[k]=x;persistTrips();openTripPlan(tripId)}
-function legControls(tripId,d,from,to,auto){let t=trips.find(x=>x.id===tripId),x=getTravelSetting(t,d,from,to),mode=x?.mode||'auto',mins=x?.mins??(auto?.mins||'');let opts=['徒歩','電車','バス','車','タクシー','飛行機','その他'];let selected=mode==='auto'?[]:String(mode).split('＋').filter(Boolean);let route=auto?`<button type="button" class="btn small" style="margin-top:6px" onclick="openGoogleLeg('${tripId}',${d},'${from||''}','${to||''}')">このルートを開く</button>`:'';return `<div class="travel-controls"><div class="travel-title">移動</div><select class="select travel-mode" multiple size="4" onchange="setTravelModes(this,'${tripId}',${d},'${from||''}','${to||''}')"><option value="auto" ${mode==='auto'?'selected':''}>自動</option>${opts.map(o=>`<option value="${o}" ${selected.includes(o)?'selected':''}>${o}</option>`).join('')}</select><input class="input travel-mins" type="number" min="1" step="5" value="${mins||''}" placeholder="分" ${mode==='auto'?'disabled':''} onchange="setTravelSetting('${tripId}',${d},'${from||''}','${to||''}','mins',this.value)"><span class="travel-note">${mode==='auto'?(auto?'自動計算':'位置未定：手動設定してください'):(mins?durationLabel(mins):'時間を入力')}</span>${route}</div>`}
+function legControls(tripId,d,from,to,auto){let t=trips.find(x=>x.id===tripId),x=getTravelSetting(t,d,from,to),mode=x?.mode||'auto',mins=x?.mins??(auto?.mins||'');let opts=['徒歩','電車','バス','車','タクシー','飛行機','その他'];let selected=mode==='auto'?[]:String(mode).split('＋').filter(Boolean);let route=auto?`<button type="button" class="btn small" style="margin-top:6px" onclick="openGoogleLeg('${tripId}',${d},'${from||''}','${to||''}')">このルートを開く</button>`:'';return `<div class="travel-controls"><div class="travel-title">移動</div><select class="select travel-mode" multiple size="4" onchange="setTravelModes(this,'${tripId}',${d},'${from||''}','${to||''}')"><option value="auto" ${mode==='auto'?'selected':''}>自動</option>${opts.map(o=>`<option value="${o}" ${selected.includes(o)?'selected':''}>${o}</option>`).join('')}</select><input class="input travel-mins" type="number" min="1" step="5" value="${mins||''}" placeholder="分" ${mode==='auto'?'disabled':''} oninput="setTravelSetting('${tripId}',${d},'${from||''}','${to||''}','mins',this.value)" onblur="setTravelSetting('${tripId}',${d},'${from||''}','${to||''}','mins',this.value)"><span class="travel-note">${mode==='auto'?(auto?'自動計算':'位置未定：手動設定してください'):(mins?durationLabel(mins):'時間を入力')}</span>${route}</div>`}
 function setTravelModes(el,tripId,d,from,to){let vals=[...el.selectedOptions].map(o=>o.value);if(vals.includes('auto')&&vals.length>1)vals=vals.filter(v=>v!=='auto');let mode=vals.length?vals.join('＋'):'auto';setTravelSetting(tripId,d,from,to,'mode',mode)}
 function saveDayPlan(tripId,d,form){let t=trips.find(x=>x.id===tripId);if(!t)return;t.dayPlans=t.dayPlans||{};let getPoint=(prefix)=>{let name=String(form.get(prefix+'Name')||'').trim(),address=String(form.get(prefix+'Address')||'').trim(),lat=form.get(prefix+'Lat'),lng=form.get(prefix+'Lng');if(!name&&!address&&!lat&&!lng)return null;return {name,address,lat:lat===''?null:Number(lat),lng:lng===''?null:Number(lng)}};let useStart=form.get('useStart')==='on',inherit=useStart&&form.get('startFromPreviousGoal')==='on'&&d>1,endOn=form.get('useEnd')==='on',prevGoal=d>1?(getDayPlan(t,d-1).endPoint||null):null,sp=useStart&&!inherit?getPoint('start'):null,effectiveStart=inherit&&prevGoal?prevGoal:sp,same=endOn&&useStart&&form.get('sameAsStart')==='on'&&!!effectiveStart,ep=endOn?(same?JSON.parse(JSON.stringify(effectiveStart)):getPoint('end')):null;t.dayPlans[String(d)]={startPoint:sp,endPoint:ep,startFromPreviousGoal:inherit,startTime:form.get('startTime')||'',endTime:form.get('endTime')||''};if(d===1){t.startPoint=sp;t.endPoint=ep;t.startTime=form.get('startTime')||'';t.endTime=form.get('endTime')||''}persistTrips();openTripPlan(tripId)}
 
@@ -184,26 +184,21 @@ function distanceKm(a,b){
 function estimateMinutes(a,b){
  const km=distanceKm(a,b);
  if(!km)return 0;
- // 2地点間を独立して計算。直線距離をそのまま時間にせず、
- // 徒歩・都市内公共交通・長距離鉄道で係数を切り替える。
- // 長距離は新幹線などの都市間鉄道を含む想定で、都市間の平均的な
- // 移動速度＋駅までの徒歩・乗換・待ち時間を加えた旅行計画用の概算。
+ // 1区間ごとに、徒歩・公共交通・都市間移動を想定。待ち時間・乗換・駅までの徒歩を含め、短く出すより余裕を持たせる。
  if(km<=1.2){
-   const walkingKm=km*1.18;
-   return Math.max(8,Math.ceil((walkingKm/4.5)*60/5)*5);
+   const walkingKm=km*1.25;
+   return Math.max(10,Math.ceil((walkingKm/4.2)*60/5)*5);
  }
  if(km<=15){
-   const access=12,wait=8,routeKm=km*1.30,speed=27;
-   return Math.max(20,Math.ceil((access+wait+(routeKm/speed)*60)/5)*5);
+   const access=15,wait=10,routeKm=km*1.45,speed=24,buffer=1.15;
+   return Math.max(25,Math.ceil(((access+wait+(routeKm/speed)*60)*buffer)/5)*5);
  }
  if(km<=50){
-   const access=15,wait=10,routeKm=km*1.20,speed=55;
-   return Math.max(35,Math.ceil((access+wait+(routeKm/speed)*60)/5)*5);
+   const access=18,wait=12,transfer=8,routeKm=km*1.30,speed=50,buffer=1.12;
+   return Math.max(45,Math.ceil(((access+wait+transfer+(routeKm/speed)*60)*buffer)/5)*5);
  }
- // 長距離：都市間鉄道（新幹線等）を想定。
- // 直線距離330km程度なら約3時間半前後になるよう設定。
- const access=25,wait=10,routeKm=km*1.10,speed=115;
- return Math.max(60,Math.ceil((access+wait+(routeKm/speed)*60)/5)*5);
+ const access=25,wait=15,transfer=15,routeKm=km*1.18,speed=105,buffer=1.12;
+ return Math.max(75,Math.ceil(((access+wait+transfer+(routeKm/speed)*60)*buffer)/5)*5);
 }
 function minutesBetween(a,b){
  if(!a||!b)return null;
@@ -215,9 +210,10 @@ function addMinutes(time,n){
  const [h,mi]=String(time).split(':').map(Number);if(!Number.isFinite(h)||!Number.isFinite(mi))return time;
  const total=(h*60+mi+Math.round(Number(n)))%1440;return String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
 }
-function transportLabel(a,b){
+function transportLabel(a,b,hasRail=false){
  const km=distanceKm(a,b),mins=estimateMinutes(a,b); if(!mins) return '';
- let mode=km<=1.2?'徒歩':km<=15?'電車＋徒歩':'電車＋徒歩';
+ // 距離だけで「電車」と断定しない。駅情報が両側にある場合だけ電車＋徒歩、それ以外は公共交通＋徒歩。
+ let mode=km<=1.2?'徒歩':(hasRail?'電車＋徒歩':'公共交通＋徒歩');
  return {mins,mode};
 }
 function buildDayPlan(t,d,places){
