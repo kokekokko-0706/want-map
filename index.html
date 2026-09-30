@@ -83,44 +83,48 @@ async function geocodeStationName(name){
 }
 async function searchStationByName(){
  let el=$('stationStatus'),box=$('stationResults'),name=$('stationNameInput')?.value.trim();
- if(!name){
-   const addr=$('address');
-   let g=addr?.dataset.selectedGeo;
-   if(g){
-     try{const p=JSON.parse(g);if(Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lng))){
-       el.textContent='登録住所の周辺駅を検索中…';el.className='geo-status';box.innerHTML='';return searchStationsAround(Number(p.lat),Number(p.lng));
-     }}catch(_){ }
-   }
-   name=addr?.value?.trim()||'';
- }
- if(!name){el.textContent='駅名または住所を入力してください。';el.className='geo-status err';return}
+ let addr=$('address');
+ let geo=null;
+ try{if(addr?.dataset.selectedGeo)geo=JSON.parse(addr.dataset.selectedGeo)}catch(_){geo=null}
+ if(!name){name=addr?.value?.trim()||''}
+ if(!name&&!geo){el.textContent='駅名または住所を入力してください。';el.className='geo-status err';return}
  el.textContent='駅を検索中…';el.className='geo-status';box.innerHTML='';
- (async()=>{
-   try{
-     const base=name.replace(/\s+/g,' ').trim(), bare=base.replace(/駅$/,'');
-     // One fast Nominatim request first; place/address data already used by the app is intentionally reused.
-     const q=bare+'駅 日本';
-     const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=12&addressdetails=1&extratags=1&namedetails=1&accept-language=ja&countrycodes=jp&q='+encodeURIComponent(q);
-     const r=await fetch(url,{headers:{'Accept':'application/json'}});
-     let all=[];
-     if(r.ok){
-       const arr=await r.json();
-       all=arr.filter(x=>{const z=((x.display_name||'')+' '+(x.name||'')+' '+(x.type||'')+' '+(x.class||'')+' '+JSON.stringify(x.extratags||{})).toLowerCase();return /駅|station|railway|train_station|public_transport|stop_position/.test(z);});
-     }
-     if(!all.length){
-       // Fallback: resolve the text exactly like a normal place, then search nearby stations once.
-       const rr=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&accept-language=ja&countrycodes=jp&q='+encodeURIComponent(name),{headers:{'Accept':'application/json'}});
-       if(rr.ok){const a=await rr.json();if(a[0]) return searchStationsAround(Number(a[0].lat),Number(a[0].lon));}
-     }
-     if(!all.length){el.textContent='駅の候補が見つかりませんでした。駅名を少し短くして再検索してください。';el.className='geo-status err';return;}
-     renderStationCandidates(all,bare);
-   }catch(e){console.error(e);el.textContent='駅の検索に失敗しました。通信状態を確認してください。';el.className='geo-status err';}
- })();
+ try{
+   // 場所検索と同じNominatim検索を最優先で使う。余計な「駅 日本」加工や
+   // 駅情報の追加検索をしないので、場所検索と同じ感覚で素早く候補を返す。
+   const qParts=[];
+   if(name)qParts.push(name);
+   if(addr?.value?.trim() && addr.value.trim()!==name)qParts.push(addr.value.trim());
+   const q=qParts.join(', ');
+   let url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=8&addressdetails=1&accept-language=ja&q='+encodeURIComponent(q);
+   let r=await fetch(url,{headers:{'Accept':'application/json'}});
+   let arr=r.ok?await r.json():[];
+   let stationLike=arr.filter(x=>/駅|station|railway|train_station|public_transport|stop_position/i.test((x.display_name||'')+' '+(x.name||'')+' '+(x.type||'')+' '+(x.class||'')));
+   if(stationLike.length){
+     renderStationCandidates(stationLike, name.replace(/駅$/,''));
+     return;
+   }
+   // 場所検索で住所が確定しているなら、その座標の周辺駅をフォールバックとして一度だけ検索。
+   let lat=geo?.lat,lng=geo?.lng;
+   if(!(Number.isFinite(Number(lat))&&Number.isFinite(Number(lng))) && arr[0]){lat=Number(arr[0].lat);lng=Number(arr[0].lon)}
+   if(Number.isFinite(Number(lat))&&Number.isFinite(Number(lng))){
+     await searchStationsAround(Number(lat),Number(lng));
+     return;
+   }
+   // 住所だけの入力でも場所検索と同じNominatimで1回だけ再検索。
+   if(addr?.value?.trim() && addr.value.trim()!==q){
+     r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&accept-language=ja&q='+encodeURIComponent(addr.value.trim()),{headers:{'Accept':'application/json'}});
+     arr=r.ok?await r.json():[];
+     stationLike=arr.filter(x=>/駅|station|railway|train_station|public_transport|stop_position/i.test((x.display_name||'')+' '+(x.name||'')+' '+(x.type||'')+' '+(x.class||'')));
+     if(stationLike.length){renderStationCandidates(stationLike, name.replace(/駅$/,''));return;}
+   }
+   el.textContent='駅の候補が見つかりませんでした。';el.className='geo-status err';
+ }catch(e){console.error(e);el.textContent='駅の検索に失敗しました。通信状態を確認してください。';el.className='geo-status err';}
 }
 async function searchStationsAround(lat,lng){
  const el=$('stationStatus'),box=$('stationResults');
  try{
-   const q=`[out:json][timeout:12];nwr(around:2500,${lat},${lng})[railway~"^(station|halt)$"];out center tags;`;
+   const q=`[out:json][timeout:10];nwr(around:2500,${lat},${lng})[railway~"^(station|halt)$"];out center tags;`;
    const r=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q));
    if(!r.ok)throw new Error('overpass '+r.status);
    const els=(await r.json()).elements||[];
@@ -133,17 +137,19 @@ async function searchStationsAround(lat,lng){
 function renderStationCandidates(all,bare){
  const el=$('stationStatus'),box=$('stationResults');
  const n=normalizeText(bare||'');
+ all=all.filter((x,i,a)=>{const key=(x.lat||'')+','+(x.lon||'')+'|'+(x.name||'');return a.findIndex(y=>((y.lat||'')+','+(y.lon||'')+'|'+(y.name||''))===key)===i});
  all.sort((a,b)=>{
    const score=x=>{let v=0,nm=normalizeText(x.name||'');if(n&&nm===n)v+=150;if(n&&nm.includes(n))v+=60;if(/駅$/.test(x.name||''))v+=10;return -v};
-   return score(a)-score(b);
+   return score(a)-score(b)
  });
  window._stationCandidates=all.slice(0,10);
  const cards=window._stationCandidates.map((x,i)=>{
-   const ad=x.address||{},pref=ad.province||ad.state||'',city=ad.city||ad.town||ad.village||ad.municipality||'';
+   const ad=x.address||{},pref=ad.province||ad.state||ad.prefecture||'',city=ad.city||ad.town||ad.village||ad.municipality||'';
    const place=[pref,city].filter(Boolean).join('')||x.display_name||'所在地情報なし';
-   const lines=[x.extratags?.network||'',x.extratags?.operator||''].flatMap(v=>String(v).split(';')).map(v=>v.trim()).filter(Boolean);
+   const tags=x.extratags||{};
+   const lines=[tags.network||'',tags.operator||'',tags['railway:ref']||''].flatMap(v=>String(v).split(';')).map(v=>v.trim()).filter(Boolean);
    const lineText=lines.length?lines.join('・'):'路線情報は駅選択後に確認';
-   return `<button type="button" class="geo-result" onclick="selectStation(${i})"><b>${esc(x.name)}</b><span>${esc(lineText+' / '+place)}</span></button>`;
+   return `<button type="button" class="geo-result" onclick="selectStation(${i})"><b>${esc(x.name||'駅')}</b><span>${esc(lineText+' / '+place)}</span></button>`;
  }).join('');
  box.innerHTML=cards;el.textContent='候補から正しい駅を選択してください。';el.className='geo-status ok';
 }
@@ -151,7 +157,7 @@ function renderStationCandidates(all,bare){
 function selectStation(i){
  let x=window._stationCandidates?.[i];if(!x)return;
  let ad=x.address||{},name=x.name||$('stationNameInput').value.trim();
- let lineGuess=[x.extratags?.network||'',x.extratags?.operator||''].flatMap(s=>String(s).split(';')).map(s=>s.trim()).filter(Boolean);
+ let lineGuess=[x.extratags?.network||'',x.extratags?.operator||'',x.extratags?.['railway:ref']||''].flatMap(s=>String(s).split(';')).map(s=>s.trim()).filter(Boolean);
  let geo={stationName:name,stationLat:Number(x.lat),stationLng:Number(x.lon),stationAddress:formatGeoAddress(x,ad,x.display_name||name),stationDistance:0,lines:lineGuess};
  let st=$('stationStatus');st.dataset.result=JSON.stringify(geo);
  st.textContent=`✓ ${name} / ${geo.stationAddress||'位置情報を取得しました'}`;
@@ -322,15 +328,14 @@ async function searchDayStation(prefix){
      const score=x=>{let v=0,nm=normalizeText(x.tags?.name||x._nominatim?.name||'');if(nm===n||nm===n+'駅')v+=100;if(n&&nm.includes(n))v+=50;if(seedLat!=null&&seedLng!=null)v-=distM(seedLat,seedLng,Number(x.lat),Number(x.lon))/10000;return v};return score(b)-score(a)
    });
    all=all.slice(0,6);
-   // 路線情報は候補ごとに大量の検索をせず、表示用に最大6件だけ並列取得。
-   const enriched=await Promise.all(all.map(async x=>({...x,_meta:await stationMeta(Number(x.lat),Number(x.lon))})));
+   // 候補ごとの追加検索はせず、場所検索と同じレスポンスだけで即表示する。
+   const enriched=all.slice(0,6);
    window._dayStationCandidates=window._dayStationCandidates||{};window._dayStationCandidates[prefix]=enriched;
    box.innerHTML=enriched.map((x,i)=>{
      let nm=x.tags?.name||x._nominatim?.name||'駅';
      let d=seedLat!=null?Math.round(distM(seedLat,seedLng,Number(x.lat),Number(x.lon))):null;
-     let meta=x._meta||{};let ad=x._nominatim?.address||{};
-     let pref=ad.province||ad.state||ad.prefecture||meta.pref||'';let city=ad.city||ad.town||ad.village||meta.city||'';
-     let lineText=(meta.lines||[]).slice(0,4).join(' / ');let area=[pref,city].filter(Boolean).join('');
+     let ad=x._nominatim?.address||{};let pref=ad.province||ad.state||ad.prefecture||'';let city=ad.city||ad.town||ad.village||ad.municipality||'';
+     let tags=x.tags||{};let lineText=[tags.network||'',tags.operator||'',tags['railway:ref']||''].flatMap(v=>String(v).split(';')).map(v=>v.trim()).filter(Boolean).join(' / ');let area=[pref,city].filter(Boolean).join('');
      return `<button type="button" class="point-result" onclick="applyDayStation('${prefix}',${i})"><b>${esc(nm)}</b><br><span>${lineText?esc(lineText):'路線情報なし'}${area?' / '+esc(area):''}${d!=null?' / 約'+d+'m':''}</span></button>`
    }).join('');
  }catch(e){box.innerHTML='<div class="hint">駅を検索できませんでした。通信状態を確認してください。</div>'}
