@@ -23,6 +23,8 @@
 .trip-detail-map{height:38vh;min-height:260px;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#ddd;margin:10px 0 14px}.trip-map-pin{width:30px;height:30px;border-radius:50%;background:#222;color:#fff;border:3px solid #fff;box-shadow:0 2px 8px #0003;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}.trip-place-number{display:inline-flex;width:24px;height:24px;border-radius:50%;background:#222;color:#fff;align-items:center;justify-content:center;font-size:11px;font-weight:800;margin-right:7px;flex:none}.trip-place-row{display:flex;align-items:flex-start;gap:8px}.trip-plan{background:#f7fafb;border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0}.plan-day{border-top:1px solid var(--line);padding:12px 0}.plan-day:first-child{border-top:0;padding-top:0}.plan-row{display:flex;gap:8px;align-items:flex-start;padding:7px 0}.plan-time{width:86px;flex:none;font-size:11px;color:#536267;font-variant-numeric:tabular-nums}.plan-main{flex:1;min-width:0}.plan-name{font-size:12px;font-weight:700}.plan-meta{font-size:10px;color:var(--muted);margin-top:2px;line-height:1.4}.plan-arrow{width:86px;flex:none;text-align:center;font-size:10px;color:#7a898d;padding:4px 0}.trip-settings{background:#f7fafb;border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0}.trip-settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.trip-setting-card{border:1px solid #e1e8ea;border-radius:12px;background:#fff;padding:10px}.trip-setting-card .label{margin-bottom:5px}.duration-row{display:flex;gap:6px;align-items:center;margin-top:7px}.duration-row select{flex:1}.day-badge{font-size:10px;padding:4px 7px;border-radius:999px;background:#edf5f6;color:#315f68}.route-link{font-size:10px;color:#315f68;text-decoration:none}..trip-map-note{font-size:11px;color:var(--muted);margin:2px 0 8px}
 .trip-place-option{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border:1px solid #e1e8ea;border-radius:12px;background:#fff;cursor:pointer}.trip-place-option input{margin-top:3px}.trip-place-option span{display:flex;flex-direction:column;gap:3px}.trip-place-option small{color:#78858a;font-size:12px}.trip-place-option:has(input:checked){background:#eef7f8;border-color:#8fb9bf}
 .point-result{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px;margin-top:6px}.point-result b,.point-result span{display:block}.point-result span{font-size:11px;color:var(--muted);margin-top:3px}.point-results{margin-top:5px}.point-fields .row{display:grid;grid-template-columns:1fr auto;gap:7px} .plan-move{opacity:.8;padding-left:12px}.plan-move .plan-name{font-size:12px;font-weight:600}
+
+.trip-day-summary-list{display:flex;flex-direction:column;gap:9px;margin:8px 0 16px}.trip-day-summary{border:1px solid #e6eaed;border-radius:14px;padding:10px 12px;background:#fff}.trip-day-title{font-weight:800;margin-bottom:7px}.trip-day-flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.trip-day-node{padding:6px 9px;border-radius:10px;background:#f4f7f8;font-size:13px}.trip-day-node.start,.trip-day-node.end{font-weight:750;background:#eef6f8}.trip-day-arrow{color:#8a969c;font-weight:700}
 </style>
 </head>
 <body><div class="app">
@@ -81,119 +83,69 @@ async function geocodeStationName(name){
 }
 async function searchStationByName(){
  let el=$('stationStatus'),box=$('stationResults'),name=$('stationNameInput')?.value.trim();
- if(!name){el.textContent='駅名を入力してください。';el.className='geo-status err';return}
- el.textContent='駅を検索中…';el.className='geo-status';box.innerHTML='';
- try{
-   let base=name.replace(/\s+/g,' ').trim();
-   let bare=base.replace(/駅$/,'');
-   let queries=[bare+'駅',bare,base+' station'];
-   let all=[],seen=new Set();
-
-   // まず場所検索と同じNominatimを使い、駅名そのものを直接取得する。
-   // layer=poiに限定しないことで、railway=station / public_transport=station
-   // のnode/way等も候補に入る。
-   for(let q of queries){
-     let url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=10&addressdetails=1&extratags=1&namedetails=1&accept-language=ja&q='+encodeURIComponent(q+' 日本');
-     let r=await fetch(url,{headers:{'Accept':'application/json'}});
-     if(!r.ok)continue;
-     let arr=await r.json();
-     for(let x of arr){
-       let s=((x.display_name||'')+' '+(x.name||'')+' '+(x.type||'')+' '+(x.class||'')+' '+JSON.stringify(x.extratags||{})).toLowerCase();
-       let isStation=/駅|station|railway|train_station|public_transport|stop_position/.test(s);
-       if(!isStation)continue;
-       let key=(x.osm_type||'')+':'+(x.osm_id||'')+':'+x.lat+':'+x.lon;
-       if(seen.has(key))continue;
-       seen.add(key);all.push(x);
-     }
+ if(!name){
+   const addr=$('address');
+   let g=addr?.dataset.selectedGeo;
+   if(g){
+     try{const p=JSON.parse(g);if(Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lng))){
+       el.textContent='登録住所の周辺駅を検索中…';el.className='geo-status';box.innerHTML='';return searchStationsAround(Number(p.lat),Number(p.lng));
+     }}catch(_){ }
    }
-
-   // Nominatimで直接取れなかった場合は、場所検索で得た候補を起点に
-   // 周辺の駅をOverpassから取得する。駅名そのものを直接検索した結果が
-   // なくても、実在駅を候補にできるようにする。
-   if(!all.length){
-     for(let q of queries){
-       try{
-         let u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&accept-language=ja&q='+encodeURIComponent(q+' 日本');
-         let rr=await fetch(u,{headers:{'Accept':'application/json'}});
-         if(!rr.ok)continue;
-         let places=await rr.json();
-         for(let p of places){
-           let lat=Number(p.lat),lng=Number(p.lon); if(!isFinite(lat)||!isFinite(lng))continue;
-           let oq=`[out:json][timeout:20];nwr(around:3000,${lat},${lng})[railway~"^(station|halt)$"];out center tags;`;
-           let or=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(oq));
-           if(!or.ok)continue;
-           let els=(await or.json()).elements||[];
-           for(let x of els){
-             let xx=Number(x.lat??x.center?.lat), yy=Number(x.lon??x.center?.lon); if(!isFinite(xx)||!isFinite(yy))continue;
-             let key=(x.type||'')+':'+(x.id||'')+':'+xx+':'+yy;
-             if(seen.has(key))continue;
-             seen.add(key);
-             all.push({name:x.tags?.name||'',display_name:x.tags?.name||'',lat:xx,lon:yy,type:x.tags?.railway||'station',class:'railway',address:{},extratags:x.tags||{},_overpass:true});
-           }
-           if(all.length)break;
-         }
-       }catch(_){}
-     }
-   }
-
-   if(!all.length){
-     el.textContent='駅の候補が見つかりませんでした。駅名を少し短くして再検索してください。';
-     el.className='geo-status err';return
-   }
-
-   let n=normalizeText(bare);
-   all.sort((a,b)=>{
-     const score=x=>{
-       let s=0,nm=normalizeText(x.name||'');
-       if(nm===n||nm===n+'駅')s+=150;
-       if(nm.includes(n))s+=60;
-       let ds=(x.display_name||'');
-       if(normalizeText(ds).includes(n))s+=20;
-       if(/station|railway|train_station|halt/.test((x.type||'')+' '+(x.class||'')))s+=20;
-       if(/駅/.test(x.name||''))s+=10;
-       return -s;
-     };
-     return score(a)-score(b);
-   });
-
-   window._stationCandidates=all.slice(0,10);
-
-   // 路線名は候補ごとにOSMのroute relationから取得。
-   // 取得できない場合は駅名・所在地だけでも候補を表示する。
-   const lineCache={};
-   async function getLines(x){
-     const lat=Number(x.lat),lng=Number(x.lon);
-     if(!isFinite(lat)||!isFinite(lng))return [];
-     const key=lat.toFixed(5)+','+lng.toFixed(5);
-     if(lineCache[key])return lineCache[key];
-     try{
-       const q=`[out:json][timeout:20];nwr(around:80,${lat},${lng})[railway];rel(bw)["type"="route"]["route"~"^(train|subway|tram|light_rail|monorail)$"];out tags;`;
-       const r=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q));
-       if(!r.ok)return [];
-       const els=(await r.json()).elements||[];
-       const lines=[...new Set(els.map(e=>e.tags?.name||e.tags?.ref).filter(Boolean))];
-       lineCache[key]=lines;return lines;
-     }catch(_){return []}
-   }
-
-   const cards=await Promise.all(window._stationCandidates.map(async(x,i)=>{
-     let ad=x.address||{};
-     let pref=ad.province||ad.state||ad.prefecture||'';
-     let city=ad.city||ad.town||ad.village||ad.municipality||'';
-     let area=[pref,city].filter(Boolean).join('');
-     let lines=await getLines(x);
-     if(!lines.length){
-       lines=(x.extratags?.network||x.extratags?.operator||'').split(';').map(s=>s.trim()).filter(Boolean);
-     }
-     let lineText=lines.length?lines.join('・'):'路線情報なし';
-     let placeText=area||[pref,city].filter(Boolean).join('')||x.display_name||'所在地情報なし';
-     return `<button type="button" class="geo-result" onclick="selectStation(${i})"><b>${esc(x.name||bare+'駅')}</b><span>${esc(lineText+' / '+placeText)}</span></button>`;
-   }));
-   box.innerHTML=cards.join('');
-   el.textContent='候補から正しい駅を選択してください。';el.className='geo-status ok';
- }catch(e){
-   console.error(e);el.textContent='駅の検索に失敗しました。通信状態を確認してください。';el.className='geo-status err'
+   name=addr?.value?.trim()||'';
  }
+ if(!name){el.textContent='駅名または住所を入力してください。';el.className='geo-status err';return}
+ el.textContent='駅を検索中…';el.className='geo-status';box.innerHTML='';
+ (async()=>{
+   try{
+     const base=name.replace(/\s+/g,' ').trim(), bare=base.replace(/駅$/,'');
+     // One fast Nominatim request first; place/address data already used by the app is intentionally reused.
+     const q=bare+'駅 日本';
+     const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=12&addressdetails=1&extratags=1&namedetails=1&accept-language=ja&countrycodes=jp&q='+encodeURIComponent(q);
+     const r=await fetch(url,{headers:{'Accept':'application/json'}});
+     let all=[];
+     if(r.ok){
+       const arr=await r.json();
+       all=arr.filter(x=>{const z=((x.display_name||'')+' '+(x.name||'')+' '+(x.type||'')+' '+(x.class||'')+' '+JSON.stringify(x.extratags||{})).toLowerCase();return /駅|station|railway|train_station|public_transport|stop_position/.test(z);});
+     }
+     if(!all.length){
+       // Fallback: resolve the text exactly like a normal place, then search nearby stations once.
+       const rr=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&accept-language=ja&countrycodes=jp&q='+encodeURIComponent(name),{headers:{'Accept':'application/json'}});
+       if(rr.ok){const a=await rr.json();if(a[0]) return searchStationsAround(Number(a[0].lat),Number(a[0].lon));}
+     }
+     if(!all.length){el.textContent='駅の候補が見つかりませんでした。駅名を少し短くして再検索してください。';el.className='geo-status err';return;}
+     renderStationCandidates(all,bare);
+   }catch(e){console.error(e);el.textContent='駅の検索に失敗しました。通信状態を確認してください。';el.className='geo-status err';}
+ })();
+}
+async function searchStationsAround(lat,lng){
+ const el=$('stationStatus'),box=$('stationResults');
+ try{
+   const q=`[out:json][timeout:12];nwr(around:2500,${lat},${lng})[railway~"^(station|halt)$"];out center tags;`;
+   const r=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q));
+   if(!r.ok)throw new Error('overpass '+r.status);
+   const els=(await r.json()).elements||[];
+   const all=els.map(x=>{const p=x.center||x;return {name:x.tags?.name||'',display_name:x.tags?.name||'',lat:Number(p.lat),lon:Number(p.lon),type:x.tags?.railway||'station',class:'railway',address:{},extratags:x.tags||{},_overpass:true};}).filter(x=>x.name&&isFinite(x.lat)&&isFinite(x.lon));
+   all.sort((a,b)=>distM(lat,lng,a.lat,a.lon)-distM(lat,lng,b.lat,b.lon));
+   if(!all.length){el.textContent='登録住所の近くに駅が見つかりませんでした。';el.className='geo-status err';return;}
+   renderStationCandidates(all, '');
+ }catch(e){el.textContent='周辺駅の検索に失敗しました。通信状態を確認してください。';el.className='geo-status err';}
+}
+function renderStationCandidates(all,bare){
+ const el=$('stationStatus'),box=$('stationResults');
+ const n=normalizeText(bare||'');
+ all.sort((a,b)=>{
+   const score=x=>{let v=0,nm=normalizeText(x.name||'');if(n&&nm===n)v+=150;if(n&&nm.includes(n))v+=60;if(/駅$/.test(x.name||''))v+=10;return -v};
+   return score(a)-score(b);
+ });
+ window._stationCandidates=all.slice(0,10);
+ const cards=window._stationCandidates.map((x,i)=>{
+   const ad=x.address||{},pref=ad.province||ad.state||'',city=ad.city||ad.town||ad.village||ad.municipality||'';
+   const place=[pref,city].filter(Boolean).join('')||x.display_name||'所在地情報なし';
+   const lines=[x.extratags?.network||'',x.extratags?.operator||''].flatMap(v=>String(v).split(';')).map(v=>v.trim()).filter(Boolean);
+   const lineText=lines.length?lines.join('・'):'路線情報は駅選択後に確認';
+   return `<button type="button" class="geo-result" onclick="selectStation(${i})"><b>${esc(x.name)}</b><span>${esc(lineText+' / '+place)}</span></button>`;
+ }).join('');
+ box.innerHTML=cards;el.textContent='候補から正しい駅を選択してください。';el.className='geo-status ok';
 }
 
 function selectStation(i){
@@ -389,34 +341,22 @@ function distanceKm(a,b){
 function estimateMinutes(a,b,hasRail=false,fromStation=null,toStation=null){
  const km=distanceKm(a,b);
  if(hasRail && fromStation && toStation){
-   // 駅が両端で指定されている場合は、直線距離をそのまま時間換算せず、
-   // 駅までの徒歩＋駅間の鉄道移動＋待ち/乗換＋小さめの余裕で計算する。
    const accessFrom=distanceKm(a,fromStation), accessTo=distanceKm(b,toStation);
-   const walkMin=km=>Math.max(5,Math.ceil((km*60/4.5)/5)*5);
+   const walkMin=x=>Math.max(5,Math.ceil((x*60/4.8)/5)*5);
    const access=walkMin(accessFrom)+walkMin(accessTo);
-   const railKm=Math.max(0.5,distanceKm(fromStation,toStation)*1.15);
-   const speed=railKm<=20?45:railKm<=60?60:railKm<=150?75:95;
-   const rail=Math.max(5,Math.ceil(((railKm/speed)*60)/5)*5);
+   const railKm=Math.max(0.5,distanceKm(fromStation,toStation)*1.12);
+   // Approximate average rail speeds: local/suburban routes are faster than the old conservative formula.
+   const speed=railKm<=20?55:railKm<=60?70:railKm<=150?85:110;
+   const rail=Math.max(10,Math.ceil(((railKm/speed)*60)/5)*5);
    const wait=8;
-   const transfer=railKm>25?8:4;
+   const transfer=railKm<=20?3:railKm<=60?8:12;
    return Math.max(15,Math.ceil(((access+rail+wait+transfer)*1.08)/5)*5);
  }
  if(!km)return 0;
- // 駅が確定できない場合は「距離だけで電車」とは断定せず、公共交通の概算として控えめに計算。
- if(km<=1.2){
-   const walkingKm=km*1.25;
-   return Math.max(10,Math.ceil((walkingKm/4.2)*60/5)*5);
- }
- if(km<=15){
-   const routeKm=km*1.35, speed=22, wait=10, access=8, buffer=1.10;
-   return Math.max(25,Math.ceil((access+wait+(routeKm/speed)*60)*buffer/5)*5);
- }
- if(km<=50){
-   const routeKm=km*1.35, speed=35, wait=12, transfer=8, buffer=1.10;
-   return Math.max(40,Math.ceil((wait+transfer+(routeKm/speed)*60)*buffer/5)*5);
- }
- const routeKm=km*1.20, speed=65, wait=12, transfer=10, buffer=1.08;
- return Math.max(60,Math.ceil((wait+transfer+(routeKm/speed)*60)*buffer/5)*5);
+ if(km<=1.2){const walkingKm=km*1.25;return Math.max(10,Math.ceil((walkingKm/4.2)*60/5)*5)}
+ if(km<=15){const routeKm=km*1.30,speed=24,wait=8,access=6,buffer=1.08;return Math.max(20,Math.ceil((access+wait+(routeKm/speed)*60)*buffer/5)*5)}
+ if(km<=50){const routeKm=km*1.25,speed=40,wait=10,transfer=6,buffer=1.08;return Math.max(35,Math.ceil((wait+transfer+(routeKm/speed)*60)*buffer/5)*5)}
+ const routeKm=km*1.18,speed=75,wait=10,transfer=8,buffer=1.06;return Math.max(55,Math.ceil((wait+transfer+(routeKm/speed)*60)*buffer/5)*5);
 }
 function minutesBetween(a,b){
  if(!a||!b)return null;
@@ -457,6 +397,21 @@ for(let d=1;d<=days;d++){let plan=buildDayPlan(t,d,places),q=getDayPlan(t,d),ite
 function resolveRoutePoint(t,d,id){let q=getDayPlan(t,d);if(id==='start')return pointCoords(q.startPoint);if(id==='end')return pointCoords(q.endPoint);let p=getTripOrderedPlaces(t.id).find(x=>x.id===id);return p&&!p.anywhere&&p.lat!=null&&p.lng!=null?[Number(p.lat),Number(p.lng)]:null}
 function openGoogleLeg(tripId,d,fromId,toId){let t=trips.find(x=>x.id===tripId);if(!t)return;let a=resolveRoutePoint(t,d,fromId),b=resolveRoutePoint(t,d,toId);if(!a||!b){alert('この区間は地図上の位置が設定されていないため、ルートを開けません。');return}sessionStorage.setItem('wantmap:lastTripPlan',JSON.stringify({tripId}));let url='https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(a.join(','))+'&destination='+encodeURIComponent(b.join(','))+'&travelmode=transit';window.location.href=url}
 
+function tripDaySummaryHtml(t,places){
+ const days=tripDayCount(t), out=[];
+ for(let d=1;d<=days;d++){
+   const q=getDayPlan(t,d), items=places.filter(p=>getPlaceDay(t,p)===d);
+   const has=q.startPoint||q.endPoint||items.length;
+   if(!has) continue;
+   let parts=[];
+   if(q.startPoint) parts.push('<span class="trip-day-node start">スタート</span>');
+   items.forEach((p,i)=>parts.push('<span class="trip-day-node"><b>'+esc((places.indexOf(p)+1)+'.')+'</b> '+esc(p.name)+'</span>'));
+   if(q.endPoint) parts.push('<span class="trip-day-node end">ゴール</span>');
+   out.push('<div class="trip-day-summary"><div class="trip-day-title">'+d+'日目</div><div class="trip-day-flow">'+parts.join('<span class="trip-day-arrow">↓</span>')+'</div></div>');
+ }
+ return out.length?'<div class="section-subtitle">日ごとの予定</div><div class="trip-day-summary-list">'+out.join('')+'</div>':'';
+}
+
 function openTripDetail(id){
  let t=trips.find(x=>x.id===id);if(!t)return;let places=getTripOrderedPlaces(id);
  let type=t.type==='outing'?'お出かけ':t.type==='trip'?'旅行':'';
@@ -471,7 +426,7 @@ function openTripDetail(id){
   placeHtml+='</div>';
  }else placeHtml='<div class="empty">この'+(type||'予定')+'に紐づけた場所はありません。</div>';
  $('modalTitle').textContent=t.name;
- $('modalBody').innerHTML='<div class="trip-detail"><div class="meta" style="margin-bottom:14px">'+(type?esc(type)+(dateText?' ・ ':''):'')+dateText+'</div>'+(places.length?'<div class="section-subtitle">行き先マップ</div><div id="tripDetailMap" class="trip-detail-map"></div><div class="trip-map-note">この'+(type||'予定')+'に紐づいている場所だけを表示しています。①②③…が下の一覧と対応しています。</div>':'')+'<div class="section-subtitle">行程設定</div><div class="toolbar"><button class="btn primary" onclick="openTripPlan(\''+t.id+'\')">日ごとの行程を作る</button></div>'+placeHtml+'<div class="actions"><button type="button" class="btn" onclick="closeModal()">閉じる</button><button type="button" class="btn primary" onclick="closeModal();openTrip(\''+t.id+'\')">旅行を編集</button></div></div>';
+ $('modalBody').innerHTML='<div class="trip-detail"><div class="meta" style="margin-bottom:14px">'+(type?esc(type)+(dateText?' ・ ':''):'')+dateText+'</div>'+tripDaySummaryHtml(t,places)+(places.length?'<div class="section-subtitle">行き先マップ</div><div id="tripDetailMap" class="trip-detail-map"></div><div class="trip-map-note">この'+(type||'予定')+'に紐づいている場所だけを表示しています。①②③…が下の一覧と対応しています。</div>':'')+'<div class="section-subtitle">行程設定</div><div class="toolbar"><button class="btn primary" onclick="openTripPlan(\''+t.id+'\')">日ごとの行程を作る</button></div>'+placeHtml+'<div class="actions"><button type="button" class="btn" onclick="closeModal()">閉じる</button><button type="button" class="btn primary" onclick="closeModal();openTrip(\''+t.id+'\')">旅行を編集</button></div></div>';
  $('modal').classList.add('show');if(places.length)setTimeout(function(){renderTripDetailMap(places)},50);
 }
 function openTrip(id=null){let t=id?trips.find(x=>x.id===id):{};let start=t.startDate||t.date||'',end=t.endDate||start;let mode=t.dateMode||'single';let type=t.type||'';$('modalTitle').textContent=id?'旅行・お出かけを編集':'旅行・お出かけを追加';$('modalBody').innerHTML=`<form id="tripForm" class="form"><div><div class="label">種類（任意）</div><div class="row"><button type="button" class="chip trip-type-btn ${type==='trip'?'active':''}" data-type="trip" style="padding:10px;cursor:pointer;border:0">旅行</button><button type="button" class="chip trip-type-btn ${type==='outing'?'active':''}" data-type="outing" style="padding:10px;cursor:pointer;border:0">お出かけ</button></div><input type="hidden" name="type" value="${type}"></div><div><div class="label">名前 *</div><input class="input" name="name" value="${esc(t.name||'')}" placeholder="例：韓国旅行、京都お出かけ" required></div><div><div class="label">日程</div><div class="row"><label class="chip" style="padding:10px;cursor:pointer"><input type="radio" name="dateMode" value="single" ${mode==='single'?'checked':''}> 1日</label><label class="chip" style="padding:10px;cursor:pointer"><input type="radio" name="dateMode" value="range" ${mode==='range'?'checked':''}> 期間</label></div><div id="tripDateFields" style="margin-top:8px"><div class="row trip-date-row"><div><div class="label" id="tripStartLabel">日付</div><input class="input" type="date" name="startDate" value="${start}"></div><div id="tripEndWrap" style="display:${mode==='range'?'block':'none'}"><div class="label">終了日</div><input class="input" type="date" name="endDate" value="${end}"></div></div></div></div><div><label class="check-item" style="padding:10px 0"><input type="checkbox" name="completed" ${t.completed?'checked':''}><span>この旅行を完了にする</span></label></div><div><div class="label">メモ</div><textarea class="textarea" name="note">${esc(t.note||'')}</textarea></div><div class="actions"><button type="button" class="btn" onclick="closeModal()">キャンセル</button><button class="btn primary">保存</button></div></form>`;$('modal').classList.add('show');document.querySelectorAll('.trip-type-btn').forEach(b=>b.onclick=()=>{let input=$('tripForm').type;if(input.value===b.dataset.type){input.value='';document.querySelectorAll('.trip-type-btn').forEach(x=>x.classList.remove('active'));}else{input.value=b.dataset.type;document.querySelectorAll('.trip-type-btn').forEach(x=>x.classList.toggle('active',x===b));}});let syncDateMode=()=>{let range=document.querySelector('input[name=dateMode]:checked')?.value==='range';$('tripEndWrap').style.display=range?'block':'none';$('tripStartLabel').textContent=range?'開始日':'日付';if(!range)$('tripForm').endDate.value=$('tripForm').startDate.value};document.querySelectorAll('input[name=dateMode]').forEach(r=>r.onchange=syncDateMode);$('tripForm').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target),dateMode=f.get('dateMode')||'single',startDate=f.get('startDate')||'',endDate=dateMode==='range'?(f.get('endDate')||''):startDate;if(dateMode==='range'&&startDate&&endDate&&endDate<startDate){alert('終了日は開始日以降にしてください。');return}let x={name:f.get('name').trim(),type:f.get('type')||'trip',dateMode,startDate,endDate,date:startDate,note:f.get('note')||'',completed:f.get('completed')==='on'};if(id)Object.assign(trips.find(t=>t.id===id),x);else trips.push({id:uid(),...x});closeModal();persistTrips()}}
