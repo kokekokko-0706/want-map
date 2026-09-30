@@ -120,7 +120,7 @@ async function searchStationByName(){
      return score(a)-score(b);
    });
    window._stationCandidates=all.slice(0,10);
-   box.innerHTML=window._stationCandidates.map((x,i)=>`<button type="button" class="geo-result" onclick="selectStation(${i})"><b>${esc(x.name||base)}</b><span>${esc(x.display_name||'')}</span></button>`).join('');
+   box.innerHTML=window._stationCandidates.map((x,i)=>{let ad=x.address||{};let pref=ad.province||ad.state||ad.prefecture||'';let city=ad.city||ad.town||ad.village||ad.municipality||'';let area=[pref,city].filter(Boolean).join('');let line=x.network||x.operator||x.extratags?.network||x.extratags?.operator||'';return `<button type="button" class="geo-result" onclick="selectStation(${i})"><b>${esc(x.name||base)}</b><span>${esc([line,area||x.display_name||''].filter(Boolean).join(' / '))}</span></button>`}).join('');
    el.textContent='候補から正しい駅を選択してください。';el.className='geo-status ok';
  }catch(e){
    console.error(e);el.textContent='駅の検索に失敗しました。通信状態を確認してください。';el.className='geo-status err'
@@ -228,6 +228,20 @@ function saveDayPlan(tripId,d,form){let t=trips.find(x=>x.id===tripId);if(!t)ret
 let dayPointPicker=null;
 async function searchDayPoint(prefix){let f=$('dayPlanForm');let name=String(f[prefix+'Name'].value||'').trim(),address=String(f[prefix+'Address'].value||'').trim();let q=[name,address].filter(Boolean).join(' ');if(!q){alert('場所の名前または住所を入力してください。');return}let box=$(prefix+'SearchResults');box.innerHTML='<div class="hint">検索中…</div>';try{let url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=ja&q='+encodeURIComponent(q);let r=await fetch(url,{headers:{'Accept':'application/json'}});if(!r.ok)throw new Error('search');let data=await r.json();window.dayPointResults=window.dayPointResults||{};window.dayPointResults[prefix]=data;if(!data.length){box.innerHTML='<div class="hint">候補が見つかりません。マップから位置を指定できます。</div>';return}box.innerHTML=data.map((x,i)=>`<button type="button" class="point-result" onclick="applyDayPoint('${prefix}',${i})"><b>${esc(x.name||x.display_name.split(',')[0])}</b><br><span>${esc(x.display_name||'')}</span></button>`).join('')}catch(e){box.innerHTML='<div class="hint">検索できませんでした。マップから位置を指定できます。</div>'}}
 function applyDayPoint(prefix,i){let r=(window.dayPointResults||{})[prefix]?.[i];if(!r)return;let f=$('dayPlanForm');f[prefix+'Name'].value=r.name||r.display_name?.split(',')[0]||'';f[prefix+'Address'].value=r.display_name||'';f[prefix+'Lat'].value=Number(r.lat).toFixed(6);f[prefix+'Lng'].value=Number(r.lon).toFixed(6);$(prefix+'SearchResults').innerHTML='<div class="hint">地点を設定しました。必要なら「マップから位置を調整」で修正できます。</div>'}
+async function stationMeta(lat,lng){
+ try{
+   const [rev,rel] = await Promise.all([
+     fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&accept-language=ja&lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lng),{headers:{'Accept':'application/json'}}).then(r=>r.ok?r.json():null).catch(()=>null),
+     fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(`[out:json][timeout:10];(relation(around:120,${lat},${lng})[type=route][route~"^(train|subway|tram|light_rail|monorail)$"];);out tags;`)).then(r=>r.ok?r.json():null).catch(()=>null)
+   ]);
+   const ad=rev?.address||{};
+   const pref=ad.province||ad.state||ad.prefecture||'';
+   const city=ad.city||ad.town||ad.village||ad.municipality||'';
+   const address=[pref,city].filter(Boolean).join('');
+   const lines=[...new Set((rel?.elements||[]).map(x=>x.tags?.name||x.tags?.ref).filter(Boolean))];
+   return {pref,city,address,lines};
+ }catch(e){return {pref:'',city:'',address:'',lines:[]}}
+}
 async function searchDayStation(prefix){
  let f=$('dayPlanForm');
  let name=String(f[prefix+'StationName'].value||'').trim();
@@ -274,11 +288,12 @@ async function searchDayStation(prefix){
      const score=x=>{let v=0,nm=normalizeText(x.tags?.name||'');if(nm===n||nm===n+'駅')v+=100;if(n&&nm.includes(n))v+=50;v-=distM(seedLat,seedLng,Number(x.lat),Number(x.lon))/10000;return v};return score(b)-score(a)
    });
    all=all.slice(0,8);
-   window._dayStationCandidates=window._dayStationCandidates||{};window._dayStationCandidates[prefix]=all;
-   box.innerHTML=all.map((x,i)=>{let nm=x.tags?.name||'駅';let d=seedLat!=null?Math.round(distM(seedLat,seedLng,Number(x.lat),Number(x.lon))):null;return `<button type="button" class="point-result" onclick="applyDayStation('${prefix}',${i})"><b>${esc(nm)}</b><br><span>${d!=null?'約'+d+'m / ':''}駅の位置情報（OpenStreetMap）</span></button>`}).join('')
+   const enriched=await Promise.all(all.map(async x=>({...x,_meta:await stationMeta(Number(x.lat),Number(x.lon))})));
+   window._dayStationCandidates=window._dayStationCandidates||{};window._dayStationCandidates[prefix]=enriched;
+   box.innerHTML=enriched.map((x,i)=>{let nm=x.tags?.name||'駅';let d=seedLat!=null?Math.round(distM(seedLat,seedLng,Number(x.lat),Number(x.lon))):null;let meta=x._meta||{};let lineText=(meta.lines||[]).slice(0,4).join(' / ');let area=[meta.pref,meta.city].filter(Boolean).join('');return `<button type="button" class="point-result" onclick="applyDayStation('${prefix}',${i})"><b>${esc(nm)}</b><br><span>${lineText?esc(lineText):'路線情報なし'}${area?' / '+esc(area):''}${d!=null?' / 約'+d+'m':''}</span></button>`}).join('')
  }catch(e){box.innerHTML='<div class="hint">駅を検索できませんでした。通信状態を確認してください。</div>'}
 }
-function applyDayStation(prefix,i){let x=(window._dayStationCandidates||{})[prefix]?.[i];if(!x)return;let f=$('dayPlanForm'),name=x.name||x.display_name?.split(',')[0]||f[prefix+'StationName'].value;f[prefix+'StationName'].value=name;f[prefix+'StationLat'].value=Number(x.lat).toFixed(6);f[prefix+'StationLng'].value=Number(x.lon).toFixed(6);f[prefix+'StationAddress'].value=x.display_name||name;$(`${prefix}StationResults`).innerHTML=`<div class="geo-status ok">✓ ${esc(name)} / ${esc(x.display_name||'位置情報を取得しました')}</div>`}
+function applyDayStation(prefix,i){let x=(window._dayStationCandidates||{})[prefix]?.[i];if(!x)return;let f=$('dayPlanForm'),name=x.name||x.display_name?.split(',')[0]||f[prefix+'StationName'].value;f[prefix+'StationName'].value=name;f[prefix+'StationLat'].value=Number(x.lat).toFixed(6);f[prefix+'StationLng'].value=Number(x.lon).toFixed(6);f[prefix+'StationAddress'].value=(x._meta?.address?x._meta.address+' / ':'')+(x.display_name||name);$(`${prefix}StationResults`).innerHTML=`<div class="geo-status ok">✓ ${esc(name)} / ${esc(x.display_name||'位置情報を取得しました')}</div>`}
 function openDayPointMap(prefix){let f=$('dayPlanForm');let lat=Number(f[prefix+'Lat'].value),lng=Number(f[prefix+'Lng'].value);if(!Number.isFinite(lat)||!Number.isFinite(lng)){lat=35.6812;lng=139.7671}let html=`<div class="point-map-wrap"><div class="hint">ピンをドラッグして位置を調整できます。</div><div id="dayPointMap" style="height:320px;border-radius:14px;overflow:hidden;border:1px solid var(--line);margin-top:8px"></div><div class="actions"><button type="button" class="btn" onclick="closeModal();openDayPlanSettings('${dayPointPicker.tripId}',${dayPointPicker.day})">戻る</button><button type="button" class="btn primary" onclick="applyDayPointMap('${prefix}')">この位置にする</button></div></div>`;$('modalTitle').textContent=prefix==='start'?'スタート地点を調整':'ゴール地点を調整';$('modalBody').innerHTML=html;$('modal').classList.add('show');setTimeout(()=>{dayPointPicker={...dayPointPicker,prefix,map:L.map('dayPointMap').setView([lat,lng],lat===35.6812&&lng===139.7671?5:16)};L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors'}).addTo(dayPointPicker.map);dayPointPicker.marker=L.marker([lat,lng],{draggable:true}).addTo(dayPointPicker.map)},30)}
 function applyDayPointMap(prefix){if(!dayPointPicker?.marker)return;let ll=dayPointPicker.marker.getLatLng();let f=dayPointPicker.form||null;dayPointPicker.coords={lat:ll.lat,lng:ll.lng};let tripId=dayPointPicker.tripId,day=dayPointPicker.day;let t=trips.find(x=>x.id===tripId),q=getDayPlan(t,day),old=prefix==='start'?q.startPoint:q.endPoint;if(old){old.lat=ll.lat;old.lng=ll.lng}else{let point={name:'',address:'',lat:ll.lat,lng:ll.lng,stationName:'',stationLat:null,stationLng:null,stationAddress:''};if(prefix==='start')q.startPoint=point;else q.endPoint=point}t.dayPlans[String(day)]=q;persistTrips();if(dayPointPicker.map)dayPointPicker.map.remove();openDayPlanSettings(tripId,day)}
 function openDayPlanSettings(tripId,d){let t=trips.find(x=>x.id===tripId);if(!t)return;let q=getDayPlan(t,d),sp=q.startPoint||{},ep=q.endPoint||{},same=q.startPoint&&q.endPoint&&JSON.stringify(q.startPoint)===JSON.stringify(q.endPoint),inherit=d>1&&q.startFromPreviousGoal;
@@ -296,29 +311,34 @@ function distanceKm(a,b){
 function estimateMinutes(a,b,hasRail=false,fromStation=null,toStation=null){
  const km=distanceKm(a,b);
  if(hasRail && fromStation && toStation){
-   const accessKm=distanceKm(a,fromStation)+distanceKm(b,toStation);
-   const railKm=Math.max(1,distanceKm(fromStation,toStation)*1.15);
-   const access=Math.max(8,Math.ceil((accessKm*1.35/4.2)*60/5)*5);
-   const rail=Math.max(20,Math.ceil((railKm/55)*60/5)*5);
-   const wait=15,transfer=15,buffer=1.18;
-   return Math.max(35,Math.ceil(((access+rail+wait+transfer)*buffer)/5)*5);
+   // 駅が両端で指定されている場合は、直線距離をそのまま時間換算せず、
+   // 駅までの徒歩＋駅間の鉄道移動＋待ち/乗換＋小さめの余裕で計算する。
+   const accessFrom=distanceKm(a,fromStation), accessTo=distanceKm(b,toStation);
+   const walkMin=km=>Math.max(5,Math.ceil((km*60/4.5)/5)*5);
+   const access=walkMin(accessFrom)+walkMin(accessTo);
+   const railKm=Math.max(0.5,distanceKm(fromStation,toStation)*1.15);
+   const speed=railKm<=20?45:railKm<=60?60:railKm<=150?75:95;
+   const rail=Math.max(5,Math.ceil(((railKm/speed)*60)/5)*5);
+   const wait=8;
+   const transfer=railKm>25?8:4;
+   return Math.max(15,Math.ceil(((access+rail+wait+transfer)*1.08)/5)*5);
  }
  if(!km)return 0;
- // 1区間ごとに、徒歩・公共交通・都市間移動を想定。待ち時間・乗換・駅までの徒歩を含め、短く出すより余裕を持たせる。
+ // 駅が確定できない場合は「距離だけで電車」とは断定せず、公共交通の概算として控えめに計算。
  if(km<=1.2){
    const walkingKm=km*1.25;
    return Math.max(10,Math.ceil((walkingKm/4.2)*60/5)*5);
  }
  if(km<=15){
-   const access=hasRail?18:10,wait=hasRail?12:8,routeKm=km*(hasRail?1.45:1.55),speed=hasRail?24:20,buffer=1.20;
-   return Math.max(hasRail?30:25,Math.ceil(((access+wait+(routeKm/speed)*60)*buffer)/5)*5);
+   const routeKm=km*1.35, speed=22, wait=10, access=8, buffer=1.10;
+   return Math.max(25,Math.ceil((access+wait+(routeKm/speed)*60)*buffer/5)*5);
  }
  if(km<=50){
-   const access=hasRail?20:15,wait=hasRail?15:10,transfer=hasRail?12:5,routeKm=km*(hasRail?1.30:1.45),speed=hasRail?55:32,buffer=1.18;
-   return Math.max(hasRail?50:45,Math.ceil(((access+wait+transfer+(routeKm/speed)*60)*buffer)/5)*5);
+   const routeKm=km*1.35, speed=35, wait=12, transfer=8, buffer=1.10;
+   return Math.max(40,Math.ceil((wait+transfer+(routeKm/speed)*60)*buffer/5)*5);
  }
- const access=hasRail?25:18,wait=hasRail?15:15,transfer=hasRail?12:10,routeKm=km*(hasRail?1.12:1.15),speed=hasRail?115:95,buffer=hasRail?1.10:1.08;
- return Math.max(hasRail?75:60,Math.ceil(((access+wait+transfer+(routeKm/speed)*60)*buffer)/5)*5);
+ const routeKm=km*1.20, speed=65, wait=12, transfer=10, buffer=1.08;
+ return Math.max(60,Math.ceil((wait+transfer+(routeKm/speed)*60)*buffer/5)*5);
 }
 function minutesBetween(a,b){
  if(!a||!b)return null;
