@@ -85,49 +85,127 @@ async function searchStationByName(){
  el.textContent='駅を検索中…';el.className='geo-status';box.innerHTML='';
  try{
    let base=name.replace(/\s+/g,' ').trim();
-   let queries=[base,/駅$/.test(base)?base:base+'駅',base+' station'];
+   let bare=base.replace(/駅$/,'');
+   let queries=[bare+'駅',bare,base+' station'];
    let all=[],seen=new Set();
+
+   // まず場所検索と同じNominatimを使い、駅名そのものを直接取得する。
+   // layer=poiに限定しないことで、railway=station / public_transport=station
+   // のnode/way等も候補に入る。
    for(let q of queries){
-     let url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=10&addressdetails=1&accept-language=ja&layer=poi&q='+encodeURIComponent(q+' 日本');
+     let url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=10&addressdetails=1&extratags=1&namedetails=1&accept-language=ja&q='+encodeURIComponent(q+' 日本');
      let r=await fetch(url,{headers:{'Accept':'application/json'}});
      if(!r.ok)continue;
      let arr=await r.json();
      for(let x of arr){
-       let s=((x.display_name||'')+' '+(x.name||'')+' '+(x.type||'')+' '+(x.class||'')).toLowerCase();
-       let isStation=/駅|station|railway|train_station|public_transport/.test(s);
+       let s=((x.display_name||'')+' '+(x.name||'')+' '+(x.type||'')+' '+(x.class||'')+' '+JSON.stringify(x.extratags||{})).toLowerCase();
+       let isStation=/駅|station|railway|train_station|public_transport|stop_position/.test(s);
        if(!isStation)continue;
        let key=(x.osm_type||'')+':'+(x.osm_id||'')+':'+x.lat+':'+x.lon;
        if(seen.has(key))continue;
        seen.add(key);all.push(x);
      }
-     if(all.length>=8)break;
    }
+
+   // Nominatimで直接取れなかった場合は、場所検索で得た候補を起点に
+   // 周辺の駅をOverpassから取得する。駅名そのものを直接検索した結果が
+   // なくても、実在駅を候補にできるようにする。
+   if(!all.length){
+     for(let q of queries){
+       try{
+         let u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&accept-language=ja&q='+encodeURIComponent(q+' 日本');
+         let rr=await fetch(u,{headers:{'Accept':'application/json'}});
+         if(!rr.ok)continue;
+         let places=await rr.json();
+         for(let p of places){
+           let lat=Number(p.lat),lng=Number(p.lon); if(!isFinite(lat)||!isFinite(lng))continue;
+           let oq=`[out:json][timeout:20];nwr(around:3000,${lat},${lng})[railway~"^(station|halt)$"];out center tags;`;
+           let or=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(oq));
+           if(!or.ok)continue;
+           let els=(await or.json()).elements||[];
+           for(let x of els){
+             let xx=Number(x.lat??x.center?.lat), yy=Number(x.lon??x.center?.lon); if(!isFinite(xx)||!isFinite(yy))continue;
+             let key=(x.type||'')+':'+(x.id||'')+':'+xx+':'+yy;
+             if(seen.has(key))continue;
+             seen.add(key);
+             all.push({name:x.tags?.name||'',display_name:x.tags?.name||'',lat:xx,lon:yy,type:x.tags?.railway||'station',class:'railway',address:{},extratags:x.tags||{},_overpass:true});
+           }
+           if(all.length)break;
+         }
+       }catch(_){}
+     }
+   }
+
    if(!all.length){
      el.textContent='駅の候補が見つかりませんでした。駅名を少し短くして再検索してください。';
      el.className='geo-status err';return
    }
-   // Prefer actual station/railway POIs and Japanese-name matches.
-   let n=normalizeText(base.replace(/駅$/,''));
+
+   let n=normalizeText(bare);
    all.sort((a,b)=>{
      const score=x=>{
-       let s=0, nm=normalizeText(x.name||'');
-       if(nm===n||nm===n+'駅')s+=100;
-       if(nm.includes(n))s+=40;
-       if(/station|railway|train_station/.test((x.type||'')+' '+(x.class||'')))s+=20;
+       let s=0,nm=normalizeText(x.name||'');
+       if(nm===n||nm===n+'駅')s+=150;
+       if(nm.includes(n))s+=60;
+       let ds=(x.display_name||'');
+       if(normalizeText(ds).includes(n))s+=20;
+       if(/station|railway|train_station|halt/.test((x.type||'')+' '+(x.class||'')))s+=20;
        if(/駅/.test(x.name||''))s+=10;
        return -s;
      };
      return score(a)-score(b);
    });
+
    window._stationCandidates=all.slice(0,10);
-   box.innerHTML=window._stationCandidates.map((x,i)=>{let ad=x.address||{};let pref=ad.province||ad.state||ad.prefecture||'';let city=ad.city||ad.town||ad.village||ad.municipality||'';let area=[pref,city].filter(Boolean).join('');let line=x.network||x.operator||x.extratags?.network||x.extratags?.operator||'';return `<button type="button" class="geo-result" onclick="selectStation(${i})"><b>${esc(x.name||base)}</b><span>${esc([line,area||x.display_name||''].filter(Boolean).join(' / '))}</span></button>`}).join('');
+
+   // 路線名は候補ごとにOSMのroute relationから取得。
+   // 取得できない場合は駅名・所在地だけでも候補を表示する。
+   const lineCache={};
+   async function getLines(x){
+     const lat=Number(x.lat),lng=Number(x.lon);
+     if(!isFinite(lat)||!isFinite(lng))return [];
+     const key=lat.toFixed(5)+','+lng.toFixed(5);
+     if(lineCache[key])return lineCache[key];
+     try{
+       const q=`[out:json][timeout:20];nwr(around:80,${lat},${lng})[railway];rel(bw)["type"="route"]["route"~"^(train|subway|tram|light_rail|monorail)$"];out tags;`;
+       const r=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q));
+       if(!r.ok)return [];
+       const els=(await r.json()).elements||[];
+       const lines=[...new Set(els.map(e=>e.tags?.name||e.tags?.ref).filter(Boolean))];
+       lineCache[key]=lines;return lines;
+     }catch(_){return []}
+   }
+
+   const cards=await Promise.all(window._stationCandidates.map(async(x,i)=>{
+     let ad=x.address||{};
+     let pref=ad.province||ad.state||ad.prefecture||'';
+     let city=ad.city||ad.town||ad.village||ad.municipality||'';
+     let area=[pref,city].filter(Boolean).join('');
+     let lines=await getLines(x);
+     if(!lines.length){
+       lines=(x.extratags?.network||x.extratags?.operator||'').split(';').map(s=>s.trim()).filter(Boolean);
+     }
+     let lineText=lines.length?lines.join('・'):'路線情報なし';
+     let placeText=area||[pref,city].filter(Boolean).join('')||x.display_name||'所在地情報なし';
+     return `<button type="button" class="geo-result" onclick="selectStation(${i})"><b>${esc(x.name||bare+'駅')}</b><span>${esc(lineText+' / '+placeText)}</span></button>`;
+   }));
+   box.innerHTML=cards.join('');
    el.textContent='候補から正しい駅を選択してください。';el.className='geo-status ok';
  }catch(e){
    console.error(e);el.textContent='駅の検索に失敗しました。通信状態を確認してください。';el.className='geo-status err'
  }
 }
 
-function selectStation(i){let x=window._stationCandidates?.[i];if(!x)return;let ad=x.address||{},name=x.name||$('stationNameInput').value.trim(),geo={stationName:name,stationLat:Number(x.lat),stationLng:Number(x.lon),stationAddress:formatGeoAddress(x,ad,x.display_name||name),stationDistance:0,lines:[]};let st=$('stationStatus');st.dataset.result=JSON.stringify(geo);st.textContent=`✓ ${name} / ${geo.stationAddress||'位置情報を取得しました'}`;st.className='geo-status ok';$('stationNameInput').value=name;$('stationResults').innerHTML='';}
+function selectStation(i){
+ let x=window._stationCandidates?.[i];if(!x)return;
+ let ad=x.address||{},name=x.name||$('stationNameInput').value.trim();
+ let lineGuess=[x.extratags?.network||'',x.extratags?.operator||''].flatMap(s=>String(s).split(';')).map(s=>s.trim()).filter(Boolean);
+ let geo={stationName:name,stationLat:Number(x.lat),stationLng:Number(x.lon),stationAddress:formatGeoAddress(x,ad,x.display_name||name),stationDistance:0,lines:lineGuess};
+ let st=$('stationStatus');st.dataset.result=JSON.stringify(geo);
+ st.textContent=`✓ ${name} / ${geo.stationAddress||'位置情報を取得しました'}`;
+ st.className='geo-status ok';$('stationNameInput').value=name;$('stationResults').innerHTML='';
+}
+
 async function lookupStationForForm(){let g=$('address')?.dataset.selectedGeo;if(!g){$('stationStatus').textContent='先に住所を検索して候補を選択してください。';$('stationStatus').className='geo-status err';return}let geo=JSON.parse(g);await lookupStation(geo.lat,geo.lng)}
 async function lookupStation(lat,lng){let el=$('stationStatus');if(!el)return;el.textContent='最寄り駅・路線を検索中…';el.className='geo-status';try{let q=`[out:json][timeout:20];node(around:1800,${lat},${lng})[railway~"^(station|halt)$"];out body;`;let r=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q));if(!r.ok)throw new Error('station '+r.status);let a=(await r.json()).elements||[];if(!a.length){el.textContent='近くの駅が見つかりませんでした。駅を検索から手動設定できます。';el.className='geo-status err';return}a.sort((x,y)=>distM(lat,lng,Number(x.lat),Number(x.lon))-distM(lat,lng,Number(y.lat),Number(y.lon)));let st=a[0],distance=distM(lat,lng,Number(st.lat),Number(st.lon));let q2=`[out:json][timeout:20];node(${st.id});rel(bn)["type"="route"]["route"~"^(train|subway|tram|light_rail|monorail)$"];out tags;`;let r2=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q2));let rels=r2.ok?(await r2.json()).elements||[]:[];let lines=[...new Set(rels.map(x=>x.tags?.name||x.tags?.ref).filter(Boolean))];let result={stationName:st.tags?.name||'最寄り駅',stationDistance:distance,lines,stationLat:Number(st.lat),stationLng:Number(st.lon),stationAddress:st.tags?.['addr:full']||st.tags?.['name']||''};el.dataset.result=JSON.stringify(result);el.textContent=`✓ ${result.stationName}（約${Math.round(distance)}m）${lines.length?' / '+lines.join('・'):''}`;el.className='geo-status ok'}catch(e){el.textContent='駅・路線の検索に失敗しました。駅を検索から手動設定できます。';el.className='geo-status err'}}
 function distM(a,b,c,d){let R=6371000,to=x=>x*Math.PI/180,da=to(c-a),db=to(d-b),x=Math.sin(da/2)**2+Math.cos(to(a))*Math.cos(to(c))*Math.sin(db/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
