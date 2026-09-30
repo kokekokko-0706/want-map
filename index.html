@@ -228,7 +228,56 @@ function saveDayPlan(tripId,d,form){let t=trips.find(x=>x.id===tripId);if(!t)ret
 let dayPointPicker=null;
 async function searchDayPoint(prefix){let f=$('dayPlanForm');let name=String(f[prefix+'Name'].value||'').trim(),address=String(f[prefix+'Address'].value||'').trim();let q=[name,address].filter(Boolean).join(' ');if(!q){alert('場所の名前または住所を入力してください。');return}let box=$(prefix+'SearchResults');box.innerHTML='<div class="hint">検索中…</div>';try{let url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=ja&q='+encodeURIComponent(q);let r=await fetch(url,{headers:{'Accept':'application/json'}});if(!r.ok)throw new Error('search');let data=await r.json();window.dayPointResults=window.dayPointResults||{};window.dayPointResults[prefix]=data;if(!data.length){box.innerHTML='<div class="hint">候補が見つかりません。マップから位置を指定できます。</div>';return}box.innerHTML=data.map((x,i)=>`<button type="button" class="point-result" onclick="applyDayPoint('${prefix}',${i})"><b>${esc(x.name||x.display_name.split(',')[0])}</b><br><span>${esc(x.display_name||'')}</span></button>`).join('')}catch(e){box.innerHTML='<div class="hint">検索できませんでした。マップから位置を指定できます。</div>'}}
 function applyDayPoint(prefix,i){let r=(window.dayPointResults||{})[prefix]?.[i];if(!r)return;let f=$('dayPlanForm');f[prefix+'Name'].value=r.name||r.display_name?.split(',')[0]||'';f[prefix+'Address'].value=r.display_name||'';f[prefix+'Lat'].value=Number(r.lat).toFixed(6);f[prefix+'Lng'].value=Number(r.lon).toFixed(6);$(prefix+'SearchResults').innerHTML='<div class="hint">地点を設定しました。必要なら「マップから位置を調整」で修正できます。</div>'}
-async function searchDayStation(prefix){let f=$('dayPlanForm');let name=String(f[prefix+'StationName'].value||'').trim();let address=String(f[prefix+'Address'].value||'').trim();let base=name||String(f[prefix+'Name'].value||'').trim();let q=[base,address].filter(Boolean).join(' ');if(!q){alert('駅名またはスタート・ゴールの場所を入力してください。');return}let box=$(prefix+'StationResults');box.innerHTML='<div class="hint">駅を検索中…</div>';try{let url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=8&accept-language=ja&addressdetails=1&q='+encodeURIComponent(q+' 駅');let r=await fetch(url,{headers:{'Accept':'application/json'}});if(!r.ok)throw new Error('search');let a=(await r.json()).filter(x=>String(x.type||'').toLowerCase()==='station'||String(x.class||'').toLowerCase()==='railway'||/駅/.test(String(x.display_name||'')));if(!a.length){box.innerHTML='<div class="hint">駅の候補が見つかりませんでした。</div>';return}window._dayStationCandidates=window._dayStationCandidates||{};window._dayStationCandidates[prefix]=a;box.innerHTML=a.map((x,i)=>`<button type="button" class="point-result" onclick="applyDayStation('${prefix}',${i})"><b>${esc(x.name||x.display_name.split(',')[0])}</b><br><span>${esc(x.display_name||'')}</span></button>`).join('')}catch(e){box.innerHTML='<div class="hint">駅を検索できませんでした。通信状態を確認してください。</div>'}}
+async function searchDayStation(prefix){
+ let f=$('dayPlanForm');
+ let name=String(f[prefix+'StationName'].value||'').trim();
+ let address=String(f[prefix+'Address'].value||'').trim();
+ let placeName=String(f[prefix+'Name'].value||'').trim();
+ let base=name||placeName;
+ if(!base&&!address){alert('駅名またはスタート・ゴールの場所を入力してください。');return}
+ let box=$(prefix+'StationResults');box.innerHTML='<div class="hint">駅を検索中…</div>';
+ try{
+   // 場所検索と同じNominatimを入口にし、取得した座標からOverpassで駅候補を取得する。
+   // 駅名を入力した場合はその駅名を優先して地理検索し、場所名しかない場合は場所の座標周辺を検索する。
+   let seedLat=null,seedLng=null,seedName='';
+   if(name){
+     let qs=[name,/駅$/.test(name)?name:name+'駅'];
+     let candidates=[];
+     for(let q0 of qs){
+       let url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&accept-language=ja&q='+encodeURIComponent(q0);
+       let r=await fetch(url,{headers:{'Accept':'application/json'}}); if(!r.ok) continue;
+       let arr=await r.json(); candidates.push(...arr);
+       if(arr.length) break;
+     }
+     let x=candidates.find(x=>/駅|station|railway|train_station|public_transport/i.test((x.display_name||'')+' '+(x.type||'')+' '+(x.class||'')))||candidates[0];
+     if(x){seedLat=Number(x.lat);seedLng=Number(x.lon);seedName=x.name||x.display_name?.split(',')[0]||name}
+   }
+   if(seedLat==null && address){
+     let q=[placeName,address].filter(Boolean).join(', ');
+     let url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&accept-language=ja&q='+encodeURIComponent(q);
+     let r=await fetch(url,{headers:{'Accept':'application/json'}}); if(!r.ok)throw new Error('place search');
+     let arr=await r.json();let x=arr[0];if(x){seedLat=Number(x.lat);seedLng=Number(x.lon)}
+   }
+   let all=[];let seen=new Set();
+   if(seedLat!=null&&seedLng!=null){
+     let oq=`[out:json][timeout:20];node(around:1800,${seedLat},${seedLng})[railway~"^(station|halt)$"];out body;`;
+     let r=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(oq));
+     if(r.ok){let arr=(await r.json()).elements||[];for(let x of arr){let key=String(x.id);if(seen.has(key))continue;seen.add(key);all.push(x)}}
+   }
+   // 駅名で検索した場合は、検索地点が駅そのものでも候補に残す。
+   if(seedLat!=null&&seedLng!=null&&seedName){
+     all.sort((a,b)=>distM(seedLat,seedLng,Number(a.lat),Number(a.lon))-distM(seedLat,seedLng,Number(b.lat),Number(b.lon)));
+   }
+   if(!all.length){box.innerHTML='<div class="hint">駅の候補が見つかりませんでした。駅名を短くするか、場所の住所を先に検索してください。</div>';return}
+   let n=normalizeText(name.replace(/駅$/,''));
+   all.sort((a,b)=>{
+     const score=x=>{let v=0,nm=normalizeText(x.tags?.name||'');if(nm===n||nm===n+'駅')v+=100;if(n&&nm.includes(n))v+=50;v-=distM(seedLat,seedLng,Number(x.lat),Number(x.lon))/10000;return v};return score(b)-score(a)
+   });
+   all=all.slice(0,8);
+   window._dayStationCandidates=window._dayStationCandidates||{};window._dayStationCandidates[prefix]=all;
+   box.innerHTML=all.map((x,i)=>{let nm=x.tags?.name||'駅';let d=seedLat!=null?Math.round(distM(seedLat,seedLng,Number(x.lat),Number(x.lon))):null;return `<button type="button" class="point-result" onclick="applyDayStation('${prefix}',${i})"><b>${esc(nm)}</b><br><span>${d!=null?'約'+d+'m / ':''}駅の位置情報（OpenStreetMap）</span></button>`}).join('')
+ }catch(e){box.innerHTML='<div class="hint">駅を検索できませんでした。通信状態を確認してください。</div>'}
+}
 function applyDayStation(prefix,i){let x=(window._dayStationCandidates||{})[prefix]?.[i];if(!x)return;let f=$('dayPlanForm'),name=x.name||x.display_name?.split(',')[0]||f[prefix+'StationName'].value;f[prefix+'StationName'].value=name;f[prefix+'StationLat'].value=Number(x.lat).toFixed(6);f[prefix+'StationLng'].value=Number(x.lon).toFixed(6);f[prefix+'StationAddress'].value=x.display_name||name;$(`${prefix}StationResults`).innerHTML=`<div class="geo-status ok">✓ ${esc(name)} / ${esc(x.display_name||'位置情報を取得しました')}</div>`}
 function openDayPointMap(prefix){let f=$('dayPlanForm');let lat=Number(f[prefix+'Lat'].value),lng=Number(f[prefix+'Lng'].value);if(!Number.isFinite(lat)||!Number.isFinite(lng)){lat=35.6812;lng=139.7671}let html=`<div class="point-map-wrap"><div class="hint">ピンをドラッグして位置を調整できます。</div><div id="dayPointMap" style="height:320px;border-radius:14px;overflow:hidden;border:1px solid var(--line);margin-top:8px"></div><div class="actions"><button type="button" class="btn" onclick="closeModal();openDayPlanSettings('${dayPointPicker.tripId}',${dayPointPicker.day})">戻る</button><button type="button" class="btn primary" onclick="applyDayPointMap('${prefix}')">この位置にする</button></div></div>`;$('modalTitle').textContent=prefix==='start'?'スタート地点を調整':'ゴール地点を調整';$('modalBody').innerHTML=html;$('modal').classList.add('show');setTimeout(()=>{dayPointPicker={...dayPointPicker,prefix,map:L.map('dayPointMap').setView([lat,lng],lat===35.6812&&lng===139.7671?5:16)};L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors'}).addTo(dayPointPicker.map);dayPointPicker.marker=L.marker([lat,lng],{draggable:true}).addTo(dayPointPicker.map)},30)}
 function applyDayPointMap(prefix){if(!dayPointPicker?.marker)return;let ll=dayPointPicker.marker.getLatLng();let f=dayPointPicker.form||null;dayPointPicker.coords={lat:ll.lat,lng:ll.lng};let tripId=dayPointPicker.tripId,day=dayPointPicker.day;let t=trips.find(x=>x.id===tripId),q=getDayPlan(t,day),old=prefix==='start'?q.startPoint:q.endPoint;if(old){old.lat=ll.lat;old.lng=ll.lng}else{let point={name:'',address:'',lat:ll.lat,lng:ll.lng,stationName:'',stationLat:null,stationLng:null,stationAddress:''};if(prefix==='start')q.startPoint=point;else q.endPoint=point}t.dayPlans[String(day)]=q;persistTrips();if(dayPointPicker.map)dayPointPicker.map.remove();openDayPlanSettings(tripId,day)}
