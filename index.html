@@ -223,8 +223,8 @@ function estimateMinutes(a,b,hasRail=false,fromStation=null,toStation=null){
    const access=hasRail?20:15,wait=hasRail?15:10,transfer=hasRail?12:5,routeKm=km*(hasRail?1.30:1.45),speed=hasRail?55:32,buffer=1.18;
    return Math.max(hasRail?50:45,Math.ceil(((access+wait+transfer+(routeKm/speed)*60)*buffer)/5)*5);
  }
- const access=hasRail?30:20,wait=hasRail?18:12,transfer=hasRail?18:8,routeKm=km*(hasRail?1.18:1.35),speed=hasRail?115:65,buffer=1.18;
- return Math.max(hasRail?90:75,Math.ceil(((access+wait+transfer+(routeKm/speed)*60)*buffer)/5)*5);
+ const access=hasRail?25:18,wait=hasRail?15:15,transfer=hasRail?12:10,routeKm=km*(hasRail?1.12:1.15),speed=hasRail?115:95,buffer=hasRail?1.10:1.08;
+ return Math.max(hasRail?75:60,Math.ceil(((access+wait+transfer+(routeKm/speed)*60)*buffer)/5)*5);
 }
 function minutesBetween(a,b){
  if(!a||!b)return null;
@@ -250,7 +250,7 @@ function buildDayPlan(t,d,places){
  if(q.startPoint)rows.push({time:cur,name:'スタート：'+pointText(q.startPoint),meta:'',type:'start'});
  let prev=q.startPoint?{id:'start',point:pointCoords(q.startPoint),stationName:(q.startPoint.stationName||(/駅$/.test(q.startPoint.name||'')?q.startPoint.name:'')),stationPoint:q.startPoint.stationLat&&q.startPoint.stationLng?[Number(q.startPoint.stationLat),Number(q.startPoint.stationLng)]:null}:null;
  items.forEach((p,idx)=>{
-   let dest=pointForPlace(p), fromId=prev?.id||'', toId=p.id, auto=prev?.point&&dest?transportLabel(prev.point,dest,!!prev.stationName,prev.stationPoint,(q.endPoint&&q.endPoint.stationLat&&q.endPoint.stationLng)?[Number(q.endPoint.stationLat),Number(q.endPoint.stationLng)]:((q.endPoint&&/駅$/.test(q.endPoint.name||''))?[Number(q.endPoint.lat),Number(q.endPoint.lng)]:null)):null, setting=getTravelSetting(t,d,fromId,toId), mins=setting?.mode&&setting.mode!=='auto'?Number(setting.mins)||0:(auto?.mins||0), mode=setting?.mode&&setting.mode!=='auto'?setting.mode:(auto?.mode||'');
+   let dest=pointForPlace(p), fromId=prev?.id||'', toId=p.id, destStation=(p.stationLat!=null&&p.stationLng!=null)?[Number(p.stationLat),Number(p.stationLng)]:null, hasRail=!!(prev?.stationPoint&&destStation), auto=prev?.point&&dest?transportLabel(prev.point,dest,hasRail,prev.stationPoint,destStation):null, setting=getTravelSetting(t,d,fromId,toId), mins=setting?.mode&&setting.mode!=='auto'?Number(setting.mins)||0:(auto?.mins||0), mode=setting?.mode&&setting.mode!=='auto'?setting.mode:(auto?.mode||'');
    if(mins){travel+=mins;if(cur)cur=addMinutes(cur,mins);rows.push({time:'',name:'移動',meta:'約'+durationLabel(mins)+' ・ '+mode,type:'move',controls:legControls(t.id,d,fromId,toId,auto)});} else if(prev){rows.push({time:'',name:'移動時間未設定',meta:'場所が未定のため、移動時間を手動で設定できます。',type:'move',controls:legControls(t.id,d,fromId,toId,auto)});}
    let raw=getDuration(t,p),dur=raw==='auto'?60:Number(raw);if(!Number.isFinite(dur))dur=60;let begin=cur,end=cur?addMinutes(cur,dur):'';
    rows.push({time:begin?begin+'〜'+end:'',name:(idx+1)+'. '+p.name,meta:'滞在 '+durationLabel(dur)+(raw==='auto'?'（自動）':'（指定）'),type:'place',place:p});if(cur)cur=end;prev={id:p.id,point:dest,stationName:p.stationName||'',stationPoint:p.stationLat&&p.stationLng?[Number(p.stationLat),Number(p.stationLng)]:null};
