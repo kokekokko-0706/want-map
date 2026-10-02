@@ -25,6 +25,9 @@
 .point-result{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px;margin-top:6px}.point-result b,.point-result span{display:block}.point-result span{font-size:11px;color:var(--muted);margin-top:3px}.point-results{margin-top:5px}.point-fields .row{display:grid;grid-template-columns:1fr auto;gap:7px} .plan-move{opacity:.8;padding-left:12px}.plan-move .plan-name{font-size:12px;font-weight:600}
 
 .trip-day-summary-list{display:flex;flex-direction:column;gap:9px;margin:8px 0 16px}.trip-day-summary{border:1px solid #e6eaed;border-radius:14px;padding:10px 12px;background:#fff}.trip-day-title{font-weight:800;margin-bottom:7px}.trip-day-flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.trip-day-node{padding:6px 9px;border-radius:10px;background:#f4f7f8;font-size:13px}.trip-day-node.start,.trip-day-node.end{font-weight:750;background:#eef6f8}.trip-day-arrow{color:#8a969c;font-weight:700}
+
+/* 旅のしおり */
+.booklet{background:#fff;color:#30464c}.book-actions{position:sticky;top:0;z-index:5;background:#fff;padding:10px;display:flex;justify-content:flex-end;gap:8px;border-bottom:1px solid #e1eaec}.book-page{max-width:760px;margin:0 auto;padding:34px 30px;break-after:page}.book-cover{min-height:520px;display:flex;flex-direction:column;justify-content:center;background:linear-gradient(180deg,#f1f8fa,#fff)}.book-cover h1{font-size:36px;line-height:1.3;margin:14px 0 8px}.book-tag,.book-kicker{font-size:11px;color:#6d9aa2;font-weight:800;letter-spacing:.12em}.book-date{font-size:14px;color:#718287}.book-page h2{font-size:25px;margin:8px 0 18px}.book-map{border:1px solid #dce8ea;border-radius:18px;overflow:hidden}.book-map-svg{display:block;width:100%;height:auto}.book-map-empty{height:300px;display:flex;align-items:center;justify-content:center;color:#8a989c;font-size:12px}.book-note,.book-footer{font-size:10px;color:#8a989c}.book-route{background:#f5fafb;border-radius:12px;padding:11px;font-size:12px;line-height:1.7;margin-bottom:16px}.book-card{display:grid;grid-template-columns:32px 1fr;gap:12px;padding:14px 0;border-bottom:1px solid #e3ecee;break-inside:avoid}.book-num{width:30px;height:30px;border-radius:50%;background:#6e9da5;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}.book-card h3{margin:0 0 8px;font-size:17px}.book-photo{width:180px;max-height:130px;object-fit:cover;border-radius:12px;margin:2px 0 8px}.book-line{font-size:10px;color:#65767b;margin:5px 0}.book-card p{font-size:11px;line-height:1.6;margin:8px 0}.book-footer{text-align:center;padding:18px}.printing-booklet #app{display:none!important}.printing-booklet #modal{position:static!important;display:block!important;background:#fff!important;overflow:visible!important}.printing-booklet #modalBody{overflow:visible!important}.printing-booklet .modal-header,.printing-booklet .book-actions{display:none!important}.printing-booklet .booklet{display:block!important}.printing-booklet .book-page{max-width:none}.printing-booklet .book-cover{min-height:250mm}@media print{body>*:not(#modal){display:none!important}.book-actions{display:none!important}.book-page{padding:15mm;max-width:none}.book-cover{min-height:250mm}.modal{position:static!important;background:#fff!important}}
 </style>
 </head>
 <body><div class="app">
@@ -425,40 +428,35 @@ function buildDayPlan(t,d,places){
 
 function openTripBooklet(tripId){
   const t=trips.find(x=>x.id===tripId); if(!t)return;
-  const places=getTripOrderedPlaces(tripId), days=tripDayCount(t);
-  const escB=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  const dayItems=d=>places.filter(p=>(getPlaceDay(t,p.id)||1)===d);
-  const photos=p=>(p.photos&&p.photos.length)?`<div class="spot-photo"><img src="${p.photos[0]}" alt="${escB(p.name)}"></div>`:'';
-  const address=p=>displayStoredAddress(p)||p.address||'';
-  const spotCard=(p,n)=>`<article class="spot-card"><div class="spot-num">${n}</div>${photos(p)}<div class="spot-body"><h3>${escB(p.name)}</h3>${address(p)?`<div class="spot-line">📍 ${escB(address(p))}</div>`:''}${p.stationName?`<div class="spot-line">🚉 ${escB(p.stationName)}${p.lines?.length?' ・ '+escB(p.lines.join('・')):''}</div>`:''}${p.note?`<p>${escB(p.note)}</p>`:''}<div class="spot-meta">${p.tripSpot?'旅行内スポット':'登録済みの場所'}${p.category?' ・ '+escB(p.category):''}</div></div></article>`;
-  let globalNo=0;
-  const daySections=[];
-  for(let d=1;d<=days;d++){
-    const items=dayItems(d); let rows='';
-    items.forEach(p=>{globalNo++;rows+=spotCard(p,globalNo)});
-    daySections.push(`<section class="day-page"><div class="day-head"><div class="day-kicker">DAY ${d}</div><h2>${escB(dayLabel(t,d)||d+'日目')}</h2></div><div class="day-route"><b>${escB(dayPointName(t,d,'start')||'スタート')}</b>${items.map((p,i)=>`<span> → </span><b>${escB(p.name)}</b>`).join('')}<span> → </span><b>${escB(dayPointName(t,d,'goal')||'ゴール')}</b></div>${items.length?items.map((p,i)=>{let n=places.indexOf(p)+1;return spotCard(p,n)}).join(''):'<div class="empty-print">この日の行き先はありません。</div>'}</section>`);
-  }
-  const mapPoints=places.filter(p=>!p.anywhere&&Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lng))).map((p,i)=>({p,i}));
-  const mapJson=JSON.stringify(mapPoints.map(x=>({name:x.p.name,lat:Number(x.p.lat),lng:Number(x.p.lng),n:x.i+1}))).replace(/</g,'\\u003c');
-  const title=escB(t.name||'旅行のしおり');
-  const date=t.startDate?(t.dateMode==='range'&&t.endDate&&t.endDate!==t.startDate?`${escB(t.startDate)}〜${escB(t.endDate)}`:escB(t.startDate)):'';
-  // iPhoneのホーム画面Webアプリではwindow.openがブロックされることがあるため、アプリ内でしおりを表示する。
-  $('modalTitle').textContent='旅のしおり';
-  $('modalBody').innerHTML='<div style="height:80vh;min-height:520px"><iframe id="bookletFrame" title="旅のしおり" style="width:100%;height:100%;border:0;border-radius:14px;background:#fff"></iframe></div><div class="actions"><button type="button" class="btn" onclick="closeModal()">閉じる</button></div>';
-  $('modal').classList.add('show');
-  const frame=$('bookletFrame');
-  const w={document:{write:html=>{frame.srcdoc=html},close:()=>{}}};
-  w.document.write(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}｜旅のしおり</title><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>
-  *{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;color:#30464c;background:#fff}.page{max-width:760px;margin:0 auto;padding:34px 34px 44px;break-after:page}.cover{min-height:100vh;display:flex;flex-direction:column;justify-content:center;background:linear-gradient(180deg,#f1f8fa,#fff)}.cover h1{font-size:38px;line-height:1.25;margin:0 0 10px}.cover .date{font-size:14px;color:#6f858a}.cover .tag{margin-top:28px;color:#5d8e98;font-size:12px;letter-spacing:.08em}.overview h2,.day-head h2{margin:4px 0 18px;font-size:25px}.kicker,.day-kicker{font-size:11px;color:#6d9aa2;font-weight:800;letter-spacing:.12em}.map{height:390px;border-radius:18px;overflow:hidden;border:1px solid #dfe8ea;margin-top:16px}.legend{font-size:10px;color:#718084;margin-top:8px}.day-page{break-before:page}.day-head{border-bottom:2px solid #dbeaec;padding-bottom:10px;margin-bottom:14px}.day-route{font-size:11px;line-height:1.7;background:#f5fafb;border-radius:12px;padding:10px;margin-bottom:14px;overflow-wrap:anywhere}.spot-card{display:grid;grid-template-columns:30px 130px 1fr;gap:12px;padding:13px 0;border-bottom:1px solid #e5ecee;break-inside:avoid}.spot-num{width:28px;height:28px;border-radius:50%;background:#6e9da5;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}.spot-photo img{width:130px;height:100px;object-fit:cover;border-radius:12px}.spot-body h3{font-size:16px;margin:1px 0 8px}.spot-line{font-size:10px;color:#65767b;margin:4px 0}.spot-body p{font-size:10px;line-height:1.6;margin:8px 0;color:#4d5b5f}.spot-meta{font-size:9px;color:#9aa6a9;margin-top:8px}.empty-print{font-size:11px;color:#8a989c;padding:20px 0}.footer{font-size:9px;color:#9aa6a9;text-align:center;padding:18px}.print-actions{position:sticky;top:0;background:#fff;padding:10px;text-align:right;border-bottom:1px solid #ddd;z-index:99}.print-actions button{border:1px solid #bfd3d7;background:#f4fafb;border-radius:8px;padding:8px 12px;font-size:12px}@media print{.print-actions{display:none}.page{padding:18mm 15mm;max-width:none}.cover{min-height:260mm}.map{height:95mm}}
-  </style></head><body><div class="print-actions"><button onclick="window.print()">PDFとして保存・印刷</button></div>
-  <section class="page cover"><div class="tag">WANT MAP · TRAVEL BOOKLET</div><h1>${title}</h1>${date?`<div class="date">${date}</div>`:''}<div class="tag">旅のしおり</div></section>
-  <section class="page overview"><div class="kicker">OVERVIEW</div><h2>旅の全体マップ</h2><div id="bookletMap" class="map"></div><div class="legend">番号は旅程の行く順番と対応しています。地図はOpenStreetMapを使用しています。</div></section>
-  ${daySections.join('')}
-  <div class="footer">Want Map · ${title}</div>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script><script>
-  const pts=${mapJson}; const m=L.map('bookletMap').setView([35.6812,139.7671],5); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(m); const b=[]; pts.forEach(x=>{const icon=L.divIcon({className:'',html:'<div style="width:28px;height:28px;border-radius:50%;background:#6e9da5;color:#fff;border:3px solid #fff;box-shadow:0 2px 6px #0003;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px">'+x.n+'</div>',iconSize:[28,28],iconAnchor:[14,14]});L.marker([x.lat,x.lng],{icon}).addTo(m).bindPopup('<b>'+String(x.n)+'. '+x.name.replace(/[&<>"']/g,'')+'</b>');b.push([x.lat,x.lng])});if(b.length)m.fitBounds(L.latLngBounds(b).pad(.2));setTimeout(()=>m.invalidateSize(),300);
-  <\/script></body></html>`);
-  w.document.close();
+  try{
+    const places=getTripOrderedPlaces(tripId), days=tripDayCount(t);
+    const escB=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    const dayItems=d=>places.filter(p=>(getPlaceDay(t,p.id)||1)===d);
+    const title=escB(t.name||'旅行のしおり');
+    const date=t.startDate?(t.dateMode==='range'&&t.endDate&&t.endDate!==t.startDate?`${escB(t.startDate)}〜${escB(t.endDate)}`:escB(t.startDate)):'';
+    const points=places.filter(p=>!p.anywhere&&Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lng)));
+    let mapSvg='';
+    if(points.length){
+      const lats=points.map(p=>Number(p.lat)), lngs=points.map(p=>Number(p.lng));
+      const minLat=Math.min(...lats),maxLat=Math.max(...lats),minLng=Math.min(...lngs),maxLng=Math.max(...lngs);
+      const pad=0.12, latSpan=(maxLat-minLat)||1, lngSpan=(maxLng-minLng)||1;
+      const xy=p=>({x:40+((Number(p.lng)-minLng)/lngSpan)*620,y:40+(1-(Number(p.lat)-minLat)/latSpan)*300});
+      const pts=points.map((p,i)=>({p,n:i+1,...xy(p)}));
+      mapSvg=`<svg viewBox="0 0 700 380" class="book-map-svg" role="img" aria-label="旅の全体マップ"><rect x="0" y="0" width="700" height="380" rx="18" fill="#eef6f8"/><path d="M30 90 C150 30 220 150 340 90 S540 60 670 130 M20 260 C150 190 230 310 360 230 S540 180 680 270" fill="none" stroke="#c9dfe3" stroke-width="2"/>${pts.length>1?`<polyline points="${pts.map(q=>q.x+','+q.y).join(' ')}" fill="none" stroke="#6e9da5" stroke-width="3" stroke-dasharray="7 5"/>`:''}${pts.map(q=>`<g><circle cx="${q.x}" cy="${q.y}" r="15" fill="#6e9da5" stroke="#fff" stroke-width="4"/><text x="${q.x}" y="${q.y+4}" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">${q.n}</text></g>`).join('')}</svg>`;
+    }else mapSvg='<div class="book-map-empty">位置情報が登録された行き先はありません。</div>';
+    let sections='';
+    for(let d=1;d<=days;d++){
+      const items=dayItems(d);
+      sections+=`<section class="book-page book-day"><div class="book-kicker">DAY ${d}</div><h2>${escB(dayLabel(t,d))}</h2><div class="book-route">${items.length?`スタート → ${items.map((p,i)=>`${i+1}. ${escB(p.name)}`).join(' → ')} → ゴール`:'この日の行き先はありません。'}</div>${items.map((p,i)=>`<article class="book-card"><div class="book-num">${places.indexOf(p)+1}</div><div class="book-card-main"><h3>${escB(p.name)}</h3>${p.photos&&p.photos[0]?`<img src="${p.photos[0]}" class="book-photo">`:''}${displayStoredAddress(p)||p.address?`<div class="book-line">📍 ${escB(displayStoredAddress(p)||p.address)}</div>`:''}${p.stationName?`<div class="book-line">🚉 ${escB(p.stationName)}${p.stationLine?' · '+escB(p.stationLine):''}</div>`:''}${p.memo?`<p>${escB(p.memo)}</p>`:''}</div></article>`).join('')}</section>`;
+    }
+    $('modalTitle').textContent='旅のしおり';
+    $('modalBody').innerHTML=`<div id="bookletPrint" class="booklet"><div class="book-actions"><button type="button" class="btn primary" onclick="printBooklet()">PDFとして保存・印刷</button><button type="button" class="btn" onclick="closeModal()">閉じる</button></div><section class="book-page book-cover"><div class="book-tag">WANT MAP · TRAVEL BOOKLET</div><h1>${title}</h1>${date?`<div class="book-date">${date}</div>`:''}<div class="book-tag">旅のしおり</div></section><section class="book-page"><div class="book-kicker">OVERVIEW</div><h2>旅の全体マップ</h2><div class="book-map">${mapSvg}</div><p class="book-note">番号は旅程の行く順番と対応しています。</p></section>${sections}<div class="book-footer">Want Map · ${title}</div></div>`;
+    $('modal').classList.add('show');
+  }catch(e){console.error(e);alert('旅のしおりを表示できませんでした。');}
+}
+function printBooklet(){
+  document.body.classList.add('printing-booklet');
+  setTimeout(()=>{window.print();setTimeout(()=>document.body.classList.remove('printing-booklet'),500)},50);
 }
 
 function openTripPlan(tripId){let t=trips.find(x=>x.id===tripId);if(!t)return;sessionStorage.setItem('wantmap:lastTripPlan',JSON.stringify({tripId}));let places=getTripOrderedPlaces(tripId),days=tripDayCount(t),html='<div class="trip-plan"><div class="toolbar" style="justify-content:space-between;align-items:center;margin-top:0"><div style="font-weight:800;font-size:15px">行程</div><button class="btn" type="button" onclick="closeModal();openTripDetail(\''+tripId+'\')">戻る</button></div><div class="hint" style="margin-top:4px">移動時間と交通手段は、距離・交通手段を考慮した旅行計画用の目安です。実際の電車・バス時刻は、各移動区間の「このルートを開く」から確認できます。</div>';
