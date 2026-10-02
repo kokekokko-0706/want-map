@@ -24,7 +24,7 @@
 .trip-place-option{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border:1px solid #e1e8ea;border-radius:12px;background:#fff;cursor:pointer}.trip-place-option input{margin-top:3px}.trip-place-option span{display:flex;flex-direction:column;gap:3px}.trip-place-option small{color:#78858a;font-size:12px}.trip-place-option:has(input:checked){background:#eef7f8;border-color:#8fb9bf}
 .point-result{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px;margin-top:6px}.point-result b,.point-result span{display:block}.point-result span{font-size:11px;color:var(--muted);margin-top:3px}.point-results{margin-top:5px}.point-fields .row{display:grid;grid-template-columns:1fr auto;gap:7px} .plan-move{opacity:.8;padding-left:12px}.plan-move .plan-name{font-size:12px;font-weight:600}
 
-.trip-day-summary-list{display:flex;flex-direction:column;gap:9px;margin:8px 0 16px}.trip-day-summary{border:1px solid #e6eaed;border-radius:14px;padding:10px 12px;background:#fff}.trip-day-summary-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.trip-day-title{font-weight:800;margin-bottom:7px}.trip-day-flow{display:flex;flex-direction:column;gap:5px}.trip-day-node{padding:6px 9px;border-radius:10px;background:#f4f7f8;font-size:13px}.trip-day-node.start,.trip-day-node.end{font-weight:750;background:#eef6f8;align-self:flex-start}.trip-day-arrow{color:#8a969c;font-weight:700;text-align:left;margin-left:18px}.trip-day-place-wrap{display:flex;flex-direction:column;gap:5px}.trip-day-place-head{display:flex;align-items:center;gap:6px}.trip-day-place{flex:1;min-width:0;white-space:normal}.trip-day-place-actions,.trip-day-place-controls{display:flex;gap:4px;align-items:center}.trip-day-place-controls{padding-left:8px}.trip-day-place-controls .select{flex:1;min-width:110px}.trip-day-place-controls .btn{flex:none}
+.trip-day-summary-list{display:flex;flex-direction:column;gap:9px;margin:8px 0 16px}.trip-day-summary{border:1px solid #e6eaed;border-radius:14px;padding:10px 12px;background:#fff}.trip-day-summary-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.trip-day-title{font-weight:800;margin-bottom:7px}.trip-day-flow{display:flex;flex-direction:column;gap:5px}.trip-day-node{padding:6px 9px;border-radius:10px;background:#f4f7f8;font-size:13px}.trip-day-node.start,.trip-day-node.end{font-weight:750;background:#eef6f8;align-self:flex-start}.trip-day-arrow{color:#8a969c;font-weight:700;text-align:left;margin-left:18px}.trip-day-place-wrap{display:flex;flex-direction:column;gap:5px}.trip-day-place-head{display:flex;align-items:center;gap:6px}.trip-day-place{flex:1;min-width:0;white-space:normal}.trip-day-place-actions,.trip-day-place-controls{display:flex;gap:4px;align-items:center}.trip-day-place-controls{padding-left:8px;display:flex;gap:4px;align-items:center;margin-top:3px}.trip-day-place-controls .select{flex:0 0 88px;width:88px;min-width:88px;height:32px;padding:5px 6px;font-size:11px}.trip-day-place-controls .btn{flex:none;height:32px;padding:5px 9px;font-size:11px}
 </style>
 </head>
 <body><div class="app">
@@ -458,7 +458,7 @@ function tripDaySummaryHtml(t,places){
  for(let d=1;d<=days;d++){
    const q=getDayPlan(t,d), items=places.filter(p=>getPlaceDay(t,p)===d);
    let parts=[];
-   if(q.startPoint) parts.push('<span class="trip-day-node start">スタート</span>');
+   if(q.startPoint) parts.push('<span class="trip-day-node start">スタート：'+esc(pointText(q.startPoint))+'</span>');
    items.forEach((p,idx)=>{
      const globalNo=places.indexOf(p)+1;
      const last=items.length-1;
@@ -480,7 +480,7 @@ function tripDaySummaryHtml(t,places){
        </div>
      </div>`);
    });
-   if(q.endPoint) parts.push('<span class="trip-day-node end">ゴール</span>');
+   if(q.endPoint) parts.push('<span class="trip-day-node end">ゴール：'+esc(pointText(q.endPoint))+'</span>');
    const flow=parts.length?parts.join('<span class="trip-day-arrow">→</span>'):'<span class="empty" style="padding:8px 0;display:block">この日の行き先はありません。</span>';
    out.push('<div class="trip-day-summary"><div class="trip-day-summary-head"><div class="trip-day-title">'+d+'日目</div><button type="button" class="btn small" onclick="openTripDayDestinationPicker(\''+t.id+'\','+d+')">＋ 行き先を追加</button></div><div class="trip-day-flow">'+flow+'</div></div>');
  }
