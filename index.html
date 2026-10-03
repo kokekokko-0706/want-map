@@ -39,6 +39,51 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const KEY='want-map-pwa-v2';const TRIP_KEY='want-map-trips-v1';const DATA_SCHEMA_VERSION=2;const BACKUP_VERSION=2;
+
+// OpenStreetMap系APIの通信を一元的に抑制・キャッシュする。
+// 同一ページ内の同一検索は再利用し、同じAPIへの連続通信は間隔を空ける。
+const apiCache=new Map(),apiPending=new Map(),apiChains=new Map(),apiLastAt=new Map();
+const API_CACHE_TTL={nominatim:5*60*1000,overpass:10*60*1000};
+const API_GAP=1100;
+const nativeFetch=window.fetch.bind(window);
+function apiInfo(input){
+  const url=typeof input==='string'?input:(input&&input.url)||'';
+  if(/https:\/\/nominatim\.openstreetmap\.org\//.test(url))return {host:'nominatim',ttl:API_CACHE_TTL.nominatim};
+  if(/https:\/\/overpass-api\.de\/api\//.test(url))return {host:'overpass',ttl:API_CACHE_TTL.overpass};
+  return null;
+}
+async function throttledApiFetch(input,init){
+  const info=apiInfo(input);
+  if(!info||String(init?.method||'GET').toUpperCase()!=='GET')return nativeFetch(input,init);
+  const url=typeof input==='string'?input:input.url;
+  const key=info.host+'|'+url;
+  const now=Date.now(),cached=apiCache.get(key);
+  if(cached&&cached.expires>now)return new Response(cached.text,{status:cached.status,headers:cached.headers});
+  if(apiPending.has(key)){
+    const v=await apiPending.get(key);
+    return new Response(v.text,{status:v.status,headers:v.headers});
+  }
+  const run=async()=>{
+    const previous=apiChains.get(info.host)||Promise.resolve();
+    await previous.catch(()=>{});
+    const wait=Math.max(0,API_GAP-(Date.now()-(apiLastAt.get(info.host)||0)));
+    if(wait)await new Promise(r=>setTimeout(r,wait));
+    apiLastAt.set(info.host,Date.now());
+    const response=await nativeFetch(input,init);
+    const text=await response.clone().text();
+    const headers={};response.headers.forEach((v,k)=>{headers[k]=v});
+    const value={text,status:response.status,headers};
+    if(response.ok)apiCache.set(key,{...value,expires:Date.now()+info.ttl});
+    return value;
+  };
+  const chain=run();
+  apiChains.set(info.host,chain);
+  const pending=chain.finally(()=>{if(apiPending.get(key)===pending)apiPending.delete(key)});
+  apiPending.set(key,pending);
+  const value=await pending;
+  return new Response(value.text,{status:value.status,headers:value.headers});
+}
+window.fetch=throttledApiFetch;
 function safeParse(raw,fallback){try{return JSON.parse(raw)}catch(e){return fallback}}
 function normalizeData(raw){let x=raw&&typeof raw==='object'?raw:{};return{schemaVersion:DATA_SCHEMA_VERSION,places:Array.isArray(x.places)?x.places.map(p=>{let q=(p&&typeof p==='object')?{...p}:{};q.tripIds=Array.isArray(q.tripIds)?[...new Set(q.tripIds.filter(Boolean).map(String))]:[];if(q.tripId&&!q.tripIds.includes(String(q.tripId)))q.tripIds.push(String(q.tripId));if(q.tripIds.length)q.tripId=q.tripIds[0];else delete q.tripId;if(q.anywhere){q.lat=null;q.lng=null;q.stationName='';q.stationLat=null;q.stationLng=null;q.stationAddress='';q.stationDistance=0;q.lines=[]}q.tags=Array.isArray(q.tags)?[...new Set(q.tags.map(String).map(v=>v.trim()).filter(Boolean))]:[];q.photos=Array.isArray(q.photos)?q.photos.filter(Boolean):[];q.urls=Array.isArray(q.urls)?q.urls:[];return q}):[],items:Array.isArray(x.items)?x.items:[]}}
 function normalizeTrips(raw){return Array.isArray(raw)?raw.filter(x=>x&&typeof x==='object'):[]}
