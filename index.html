@@ -38,15 +38,15 @@
 <input id="backupFile" type="file" accept="application/json,.json" style="display:none" onchange="importBackupFile(this.files[0])"><div id="locationPicker" class="location-picker"><div class="location-picker-head"><button type="button" class="btn" onclick="closeLocationPicker()">キャンセル</button><div class="location-picker-title">地図から位置を指定</div></div><div id="locationPickerMap" class="location-picker-map"></div><div class="location-picker-foot"><div class="location-picker-hint">地図をタップしてピンを置けます。ピンはドラッグして細かく調整できます。</div><div id="locationPickerStatus" class="location-picker-note">位置を指定してください。</div><div class="location-picker-actions"><button type="button" class="btn" onclick="useCurrentLocationForPicker()">現在地を使う</button><button type="button" class="btn" onclick="reverseGeocodePickedLocation()">📍 この位置から住所を取得</button><button type="button" class="btn primary" onclick="applyPickedLocation()">この位置で決定</button></div></div></div><div id="modal" class="modal"><div class="sheet"><h2 id="modalTitle"></h2><div id="modalBody"></div></div></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const KEY='want-map-pwa-v2';const TRIP_KEY='want-map-trips-v1';
+const KEY='want-map-pwa-v2';const TRIP_KEY='want-map-trips-v1';const DATA_SCHEMA_VERSION=2;const BACKUP_VERSION=2;
 function safeParse(raw,fallback){try{return JSON.parse(raw)}catch(e){return fallback}}
-function normalizeData(raw){let x=raw&&typeof raw==='object'?raw:{};return{places:Array.isArray(x.places)?x.places.map(p=>{let q=(p&&typeof p==='object')?{...p}:{};q.tripIds=Array.isArray(q.tripIds)?[...new Set(q.tripIds.filter(Boolean).map(String))]:[];if(q.tripId&&!q.tripIds.includes(String(q.tripId)))q.tripIds.push(String(q.tripId));if(q.anywhere){q.lat=null;q.lng=null;q.stationName='';q.stationLat=null;q.stationLng=null;q.stationAddress='';q.stationDistance=0;q.lines=[]}q.tags=Array.isArray(q.tags)?[...new Set(q.tags.map(String).map(v=>v.trim()).filter(Boolean))]:[];q.photos=Array.isArray(q.photos)?q.photos.filter(Boolean):[];q.urls=Array.isArray(q.urls)?q.urls:[];return q}):[],items:Array.isArray(x.items)?x.items:[]}}
+function normalizeData(raw){let x=raw&&typeof raw==='object'?raw:{};return{schemaVersion:DATA_SCHEMA_VERSION,places:Array.isArray(x.places)?x.places.map(p=>{let q=(p&&typeof p==='object')?{...p}:{};q.tripIds=Array.isArray(q.tripIds)?[...new Set(q.tripIds.filter(Boolean).map(String))]:[];if(q.tripId&&!q.tripIds.includes(String(q.tripId)))q.tripIds.push(String(q.tripId));if(q.tripIds.length)q.tripId=q.tripIds[0];else delete q.tripId;if(q.anywhere){q.lat=null;q.lng=null;q.stationName='';q.stationLat=null;q.stationLng=null;q.stationAddress='';q.stationDistance=0;q.lines=[]}q.tags=Array.isArray(q.tags)?[...new Set(q.tags.map(String).map(v=>v.trim()).filter(Boolean))]:[];q.photos=Array.isArray(q.photos)?q.photos.filter(Boolean):[];q.urls=Array.isArray(q.urls)?q.urls:[];return q}):[],items:Array.isArray(x.items)?x.items:[]}}
 function normalizeTrips(raw){return Array.isArray(raw)?raw.filter(x=>x&&typeof x==='object'):[]}
 let data=normalizeData(safeParse(localStorage.getItem(KEY),{places:[],items:[]}));let trips=normalizeTrips(safeParse(localStorage.getItem(TRIP_KEY),[]));
 let map,markers=[],editing=null,mapAreaFilter=false,mapSelectedTags=[],placeSelectedTags=[],selectedItemTags=[],tripDetailMap=null,tripDetailMarkers=[],userLocationMarker=null;
 const CATS={food:{label:'飲食店',genres:['カフェ・喫茶店','スイーツ','パン・ベーカリー','和食','洋食','中華','韓国料理','イタリアン','フレンチ','ラーメン','居酒屋','その他']},shopping:{label:'買い物',genres:['服・ファッション','コスメ・美容','雑貨','家具・インテリア','家電','本・文具','食品・食材','お土産','その他']},sightseeing:{label:'観光・スポット',genres:['観光名所','美術館・博物館','神社・寺','公園・自然','撮影スポット','エンタメ','その他']},hotel:{label:'ホテル・宿',genres:['ホテル','旅館','民宿・ゲストハウス','その他']},other:{label:'その他',genres:['その他']}};
 function $(id){return document.getElementById(id)}function esc(s=''){return String(s).replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]))}function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}function yen(n){return n?`¥${Number(n).toLocaleString('ja-JP')}`:'—'}
-function persist(){try{localStorage.setItem(KEY,JSON.stringify(data));render()}catch(e){console.error(e);alert('データを保存できませんでした。写真が多い場合は、写真を減らすかバックアップを確認してください。')}}
+function persist(){try{data=normalizeData(data);localStorage.setItem(KEY,JSON.stringify(data));render()}catch(e){console.error(e);alert('データを保存できませんでした。写真が多い場合は、写真を減らすかバックアップを確認してください。')}}
 function persistTrips(){try{localStorage.setItem(TRIP_KEY,JSON.stringify(trips));renderTrips()}catch(e){console.error(e);alert('旅行データを保存できませんでした。')}}
 function catOptions(sel=''){return '<option value="">カテゴリを選択</option>'+Object.entries(CATS).map(([k,v])=>`<option value="${k}" ${k===sel?'selected':''}>${v.label}</option>`).join('')}
 function genreOptions(cat,sel=''){let gs=CATS[cat]?.genres||[];return '<option value="">選択してください</option>'+gs.map(g=>`<option ${g===sel?'selected':''}>${esc(g)}</option>`).join('')}
@@ -514,7 +514,7 @@ $('modalBody').innerHTML=`<div class="manual-body">
 $('modal').classList.add('show');
 }
 function exportBackup(){
-  const payload={app:'Want Map',backupVersion:1,exportedAt:new Date().toISOString(),data:{places:data.places,items:data.items},trips};
+  const payload={app:'Want Map',backupVersion:BACKUP_VERSION,schemaVersion:DATA_SCHEMA_VERSION,exportedAt:new Date().toISOString(),data:{schemaVersion:DATA_SCHEMA_VERSION,places:data.places,items:data.items},trips};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const now=new Date();
   const pad=n=>String(n).padStart(2,'0');
@@ -535,13 +535,13 @@ function importBackupFile(file){
       const payload=JSON.parse(reader.result);
       const importedData=payload?.data;
       const importedTrips=payload?.trips;
-      if(payload?.app!=='Want Map'||!importedData||!Array.isArray(importedData.places)||!Array.isArray(importedData.items)||!Array.isArray(importedTrips))throw new Error('invalid');
+      if(payload?.app!=='Want Map'||![1,2].includes(Number(payload?.backupVersion||1))||!importedData||!Array.isArray(importedData.places)||!Array.isArray(importedData.items)||!Array.isArray(importedTrips))throw new Error('invalid');
       const ok=confirm('現在のWant Mapのデータはすべて置き換わります。\n\nインポートを実行しますか？');
       if(!ok){$('backupFile').value='';return;}
-      localStorage.setItem(KEY,JSON.stringify({places:importedData.places,items:importedData.items}));
-      localStorage.setItem(TRIP_KEY,JSON.stringify(importedTrips));
       data=normalizeData(importedData);
       trips=normalizeTrips(importedTrips);
+      localStorage.setItem(KEY,JSON.stringify(data));
+      localStorage.setItem(TRIP_KEY,JSON.stringify(trips));
       closeModal();
       render();
       alert('データをインポートしました。');
@@ -569,5 +569,5 @@ $('modal').classList.add('show')
 function closeModal(){if(tripDetailMap){tripDetailMap.remove();tripDetailMap=null;tripDetailMarkers=[]}$('modal').classList.remove('show');editing=null}$('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('panel-'+b.dataset.tab).classList.add('active');if(b.dataset.tab==='map')setTimeout(()=>map.invalidateSize(),100)});
 ['placeQ','placeCat','placeStatus','placeDeadline','placeSort'].forEach(id=>$(id).addEventListener('input',renderPlaces));['itemQ','itemType','itemStatus','itemFavorite','itemDeadline','itemSort'].forEach(id=>$(id).addEventListener('input',renderItems));['mapQ','mapCat','mapStatus'].forEach(id=>$(id).addEventListener('input',renderMap));
-function render(){fillFilter('mapCat');fillFilter('placeCat');renderTagBars();renderMap();renderPlaces();renderItems();renderTrips()}initMap();render();window.addEventListener('pageshow',()=>{try{let x=JSON.parse(sessionStorage.getItem('wantmap:lastTripPlan')||'null');if(x?.tripId){setTimeout(()=>openTripPlan(x.tripId),120)}}catch(e){}});if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v=143').catch(()=>{});
+function render(){fillFilter('mapCat');fillFilter('placeCat');renderTagBars();renderMap();renderPlaces();renderItems();renderTrips()}initMap();render();window.addEventListener('pageshow',()=>{try{let x=JSON.parse(sessionStorage.getItem('wantmap:lastTripPlan')||'null');if(x?.tripId){setTimeout(()=>openTripPlan(x.tripId),120)}}catch(e){}});if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v=144').catch(()=>{});
 </script></body></html>
