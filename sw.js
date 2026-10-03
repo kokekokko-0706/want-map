@@ -1,4 +1,4 @@
-const CACHE_NAME='want-map-shell-v147';
+const CACHE_NAME='want-map-shell-v154';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icon-180.png','./icon-512.png','./check.js'];
 
 self.addEventListener('install',event=>{
@@ -27,15 +27,13 @@ self.addEventListener('fetch',event=>{
 
   if(request.mode==='navigate' && sameOrigin){
     event.respondWith(
-      caches.match('./index.html').then(cached=>
-        cached || fetch(request).then(response=>{
-          if(response.ok){
-            const copy=response.clone();
-            caches.open(CACHE_NAME).then(cache=>cache.put('./index.html',copy));
-          }
-          return response;
-        }).catch(()=>caches.match('./index.html'))
-      )
+      fetch(request).then(response=>{
+        if(response.ok){
+          const copy=response.clone();
+          caches.open(CACHE_NAME).then(cache=>cache.put('./index.html',copy));
+        }
+        return response;
+      }).catch(()=>caches.match('./index.html'))
     );
     return;
   }
