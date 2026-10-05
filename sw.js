@@ -1,4 +1,4 @@
-const CACHE_NAME='want-map-shell-v170';
+const CACHE_NAME='want-map-shell-v171';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icon-180.png','./icon-512.png','./check.js'];
 
 self.addEventListener('install',event=>{
